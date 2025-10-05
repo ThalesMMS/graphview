@@ -247,6 +247,42 @@ class _TreeViewPageState extends State<TreeViewPage> {
 }
 ```
 
+### Editable edge labels with `edgeBuilder`
+
+`GraphView.builder` and `GraphView` now accept an optional `edgeBuilder` callback that lets you render each edge label with a custom widget instead of the default paint-based text. This makes it possible to offer inline editing experiences or show complex widgets alongside the connection.
+
+```dart
+final controller = GraphViewController();
+bool useEditableLabels = true;
+
+GraphView.builder(
+  graph: graph,
+  algorithm: algorithm,
+  controller: controller,
+  paint: Paint()
+    ..color = Colors.blueGrey
+    ..strokeWidth = 2,
+  // Toggle between classic paint only rendering and widget-based labels.
+  edgeBuilder: useEditableLabels
+      ? (edge, params) => EditableEdgeLabel.fromParams(
+            edge: edge,
+            params: params,
+            placeholder: 'Tap to rename',
+          )
+      : null,
+  builder: (node) => YourNodeWidget(node),
+);
+```
+
+Inside your builder you can mutate `edge.label` directly or call the helpers exposed through `EdgeLabelBuilderParams`. After changing the text make sure to request a new layout so the label position is recalculated:
+
+```dart
+params.onChanged('New label');
+params.graphViewController?.forceRecalculation();
+```
+
+`EditableEdgeLabel` does this automatically when the user finishes editing, but custom widgets should call `forceRecalculation()` (or the provided `params.refreshGraph()`) whenever the dimensions of the edge label change.
+
 ### Advanced Features
 
 #### GraphView.builder
