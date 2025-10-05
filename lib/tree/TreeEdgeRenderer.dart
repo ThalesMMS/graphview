@@ -36,10 +36,17 @@ class TreeEdgeRenderer extends EdgeRenderer {
     } else {
       canvas.drawPath(linePath, edgePaint);
     }
+
+    paintLabelOnPath(canvas, edge, linePath);
   }
 
   /// Draws a path with the specified line type by converting it to line segments
-  void _drawStyledPath(Canvas canvas, Path path, Paint paint, LineType lineType) {
+  void _drawStyledPath(
+    Canvas canvas,
+    Path path,
+    Paint paint,
+    LineType lineType,
+  ) {
     // Extract path points for styled rendering
     final points = _extractPathPoints(path);
 
@@ -90,7 +97,13 @@ class TreeEdgeRenderer extends EdgeRenderer {
   }
 
   /// Builds the path for the edge based on orientation
-  void buildEdgePath(Node node, Node child, Offset parentPos, Offset childPos, int orientation) {
+  void buildEdgePath(
+    Node node,
+    Node child,
+    Offset parentPos,
+    Offset childPos,
+    int orientation,
+  ) {
     final parentCenterX = parentPos.dx + node.width * 0.5;
     final parentCenterY = parentPos.dy + node.height * 0.5;
     final childCenterX = childPos.dx + child.width * 0.5;
@@ -100,26 +113,70 @@ class TreeEdgeRenderer extends EdgeRenderer {
 
     switch (orientation) {
       case BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM:
-        buildTopBottomPath(node, child, parentPos, childPos, parentCenterX, parentCenterY, childCenterX, childCenterY);
+        buildTopBottomPath(
+          node,
+          child,
+          parentPos,
+          childPos,
+          parentCenterX,
+          parentCenterY,
+          childCenterX,
+          childCenterY,
+        );
         break;
 
       case BuchheimWalkerConfiguration.ORIENTATION_BOTTOM_TOP:
-        buildBottomTopPath(node, child, parentPos, childPos, parentCenterX, parentCenterY, childCenterX, childCenterY);
+        buildBottomTopPath(
+          node,
+          child,
+          parentPos,
+          childPos,
+          parentCenterX,
+          parentCenterY,
+          childCenterX,
+          childCenterY,
+        );
         break;
 
       case BuchheimWalkerConfiguration.ORIENTATION_LEFT_RIGHT:
-        buildLeftRightPath(node, child, parentPos, childPos, parentCenterX, parentCenterY, childCenterX, childCenterY);
+        buildLeftRightPath(
+          node,
+          child,
+          parentPos,
+          childPos,
+          parentCenterX,
+          parentCenterY,
+          childCenterX,
+          childCenterY,
+        );
         break;
 
       case BuchheimWalkerConfiguration.ORIENTATION_RIGHT_LEFT:
-        buildRightLeftPath(node, child, parentPos, childPos, parentCenterX, parentCenterY, childCenterX, childCenterY);
+        buildRightLeftPath(
+          node,
+          child,
+          parentPos,
+          childPos,
+          parentCenterX,
+          parentCenterY,
+          childCenterX,
+          childCenterY,
+        );
         break;
     }
   }
 
   /// Builds path for top-bottom orientation
-  void buildTopBottomPath(Node node, Node child, Offset parentPos, Offset childPos,
-      double parentCenterX, double parentCenterY, double childCenterX, double childCenterY) {
+  void buildTopBottomPath(
+    Node node,
+    Node child,
+    Offset parentPos,
+    Offset childPos,
+    double parentCenterX,
+    double parentCenterY,
+    double childCenterX,
+    double childCenterY,
+  ) {
     final parentBottomY = parentPos.dy + node.height * 0.5;
     final childTopY = childPos.dy + child.height * 0.5;
     final midY = (parentBottomY + childTopY) * 0.5;
@@ -129,9 +186,12 @@ class TreeEdgeRenderer extends EdgeRenderer {
       linePath
         ..moveTo(childCenterX, childTopY)
         ..cubicTo(
-          childCenterX, midY,
-          parentCenterX, midY,
-          parentCenterX, parentBottomY,
+          childCenterX,
+          midY,
+          parentCenterX,
+          midY,
+          parentCenterX,
+          parentBottomY,
         );
     } else {
       // L-shaped connection
@@ -144,8 +204,16 @@ class TreeEdgeRenderer extends EdgeRenderer {
   }
 
   /// Builds path for bottom-top orientation
-  void buildBottomTopPath(Node node, Node child, Offset parentPos, Offset childPos,
-      double parentCenterX, double parentCenterY, double childCenterX, double childCenterY) {
+  void buildBottomTopPath(
+    Node node,
+    Node child,
+    Offset parentPos,
+    Offset childPos,
+    double parentCenterX,
+    double parentCenterY,
+    double childCenterX,
+    double childCenterY,
+  ) {
     final parentTopY = parentPos.dy + node.height * 0.5;
     final childBottomY = childPos.dy + child.height * 0.5;
     final midY = (parentTopY + childBottomY) * 0.5;
@@ -154,9 +222,12 @@ class TreeEdgeRenderer extends EdgeRenderer {
       linePath
         ..moveTo(childCenterX, childBottomY)
         ..cubicTo(
-          childCenterX, midY,
-          parentCenterX, midY,
-          parentCenterX, parentTopY,
+          childCenterX,
+          midY,
+          parentCenterX,
+          midY,
+          parentCenterX,
+          parentTopY,
         );
     } else {
       linePath
@@ -168,8 +239,16 @@ class TreeEdgeRenderer extends EdgeRenderer {
   }
 
   /// Builds path for left-right orientation
-  void buildLeftRightPath(Node node, Node child, Offset parentPos, Offset childPos,
-      double parentCenterX, double parentCenterY, double childCenterX, double childCenterY) {
+  void buildLeftRightPath(
+    Node node,
+    Node child,
+    Offset parentPos,
+    Offset childPos,
+    double parentCenterX,
+    double parentCenterY,
+    double childCenterX,
+    double childCenterY,
+  ) {
     final parentRightX = parentPos.dx + node.width * 0.5;
     final childLeftX = childPos.dx + child.width * 0.5;
     final midX = (parentRightX + childLeftX) * 0.5;
@@ -178,9 +257,12 @@ class TreeEdgeRenderer extends EdgeRenderer {
       linePath
         ..moveTo(childLeftX, childCenterY)
         ..cubicTo(
-          midX, childCenterY,
-          midX, parentCenterY,
-          parentRightX, parentCenterY,
+          midX,
+          childCenterY,
+          midX,
+          parentCenterY,
+          parentRightX,
+          parentCenterY,
         );
     } else {
       linePath
@@ -192,8 +274,16 @@ class TreeEdgeRenderer extends EdgeRenderer {
   }
 
   /// Builds path for right-left orientation
-  void buildRightLeftPath(Node node, Node child, Offset parentPos, Offset childPos,
-      double parentCenterX, double parentCenterY, double childCenterX, double childCenterY) {
+  void buildRightLeftPath(
+    Node node,
+    Node child,
+    Offset parentPos,
+    Offset childPos,
+    double parentCenterX,
+    double parentCenterY,
+    double childCenterX,
+    double childCenterY,
+  ) {
     final parentLeftX = parentPos.dx + node.width * 0.5;
     final childRightX = childPos.dx + child.width * 0.5;
     final midX = (parentLeftX + childRightX) * 0.5;
@@ -202,9 +292,12 @@ class TreeEdgeRenderer extends EdgeRenderer {
       linePath
         ..moveTo(childRightX, childCenterY)
         ..cubicTo(
-          midX, childCenterY,
-          midX, parentCenterY,
-          parentLeftX, parentCenterY,
+          midX,
+          childCenterY,
+          midX,
+          parentCenterY,
+          parentLeftX,
+          parentCenterY,
         );
     } else {
       linePath

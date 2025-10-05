@@ -37,23 +37,27 @@ class ArrowEdgeRenderer extends EdgeRenderer {
     var stopY = destinationOffset.dy + destination.height * 0.5;
 
     var clippedLine = clipLineEnd(
-        startX,
-        startY,
-        stopX,
-        stopY,
-        destinationOffset.dx,
-        destinationOffset.dy,
-        destination.width,
-        destination.height);
+      startX,
+      startY,
+      stopX,
+      stopY,
+      destinationOffset.dx,
+      destinationOffset.dy,
+      destination.width,
+      destination.height,
+    );
 
     final currentPaint = edge.paint ?? paint;
+    final startPoint = Offset(clippedLine[0], clippedLine[1]);
+    late final Offset endPoint;
 
     if (noArrow) {
       // Draw line without arrow, respecting line type
+      endPoint = Offset(clippedLine[2], clippedLine[3]);
       drawStyledLine(
         canvas,
-        Offset(clippedLine[0], clippedLine[1]),
-        Offset(clippedLine[2], clippedLine[3]),
+        startPoint,
+        endPoint,
         currentPaint,
         lineType: _getLineType(destination),
       );
@@ -71,22 +75,26 @@ class ArrowEdgeRenderer extends EdgeRenderer {
       }
 
       var triangleCentroid = drawTriangle(
-          canvas,
-          edgeTrianglePaint ?? trianglePaint,
-          clippedLine[0],
-          clippedLine[1],
-          clippedLine[2],
-          clippedLine[3]);
+        canvas,
+        edgeTrianglePaint ?? trianglePaint,
+        clippedLine[0],
+        clippedLine[1],
+        clippedLine[2],
+        clippedLine[3],
+      );
 
       // Draw the line with the appropriate style
       drawStyledLine(
         canvas,
-        Offset(clippedLine[0], clippedLine[1]),
+        startPoint,
         triangleCentroid,
         currentPaint,
         lineType: _getLineType(destination),
       );
+      endPoint = triangleCentroid;
     }
+
+    paintLabelOnLine(canvas, edge, startPoint, endPoint);
   }
 
   /// Helper to get line type from node data if available
@@ -99,21 +107,27 @@ class ArrowEdgeRenderer extends EdgeRenderer {
     return null;
   }
 
-  Offset drawTriangle(Canvas canvas, Paint paint, double lineStartX,
-      double lineStartY, double arrowTipX, double arrowTipY) {
+  Offset drawTriangle(
+    Canvas canvas,
+    Paint paint,
+    double lineStartX,
+    double lineStartY,
+    double arrowTipX,
+    double arrowTipY,
+  ) {
     // Calculate direction from line start to arrow tip, then flip 180° to point backwards from tip
     var lineDirection =
-    (atan2(arrowTipY - lineStartY, arrowTipX - lineStartX) + pi);
+        (atan2(arrowTipY - lineStartY, arrowTipX - lineStartX) + pi);
 
     // Calculate the two base points of the arrowhead triangle
     var leftWingX =
-    (arrowTipX + ARROW_LENGTH * cos((lineDirection - ARROW_DEGREES)));
+        (arrowTipX + ARROW_LENGTH * cos((lineDirection - ARROW_DEGREES)));
     var leftWingY =
-    (arrowTipY + ARROW_LENGTH * sin((lineDirection - ARROW_DEGREES)));
+        (arrowTipY + ARROW_LENGTH * sin((lineDirection - ARROW_DEGREES)));
     var rightWingX =
-    (arrowTipX + ARROW_LENGTH * cos((lineDirection + ARROW_DEGREES)));
+        (arrowTipX + ARROW_LENGTH * cos((lineDirection + ARROW_DEGREES)));
     var rightWingY =
-    (arrowTipY + ARROW_LENGTH * sin((lineDirection + ARROW_DEGREES)));
+        (arrowTipY + ARROW_LENGTH * sin((lineDirection + ARROW_DEGREES)));
 
     // Draw the triangle: tip -> left wing -> right wing -> back to tip
     trianglePath.moveTo(arrowTipX, arrowTipY); // Arrow tip
@@ -131,14 +145,15 @@ class ArrowEdgeRenderer extends EdgeRenderer {
   }
 
   List<double> clipLineEnd(
-      double startX,
-      double startY,
-      double stopX,
-      double stopY,
-      double destX,
-      double destY,
-      double destWidth,
-      double destHeight) {
+    double startX,
+    double startY,
+    double stopX,
+    double stopY,
+    double destX,
+    double destY,
+    double destWidth,
+    double destHeight,
+  ) {
     var clippedStopX = stopX;
     var clippedStopY = stopY;
 
@@ -183,8 +198,13 @@ class ArrowEdgeRenderer extends EdgeRenderer {
     return [startX, startY, clippedStopX, clippedStopY];
   }
 
-  List<double> clipLine(double startX, double startY, double stopX,
-      double stopY, Node destination) {
+  List<double> clipLine(
+    double startX,
+    double startY,
+    double stopX,
+    double stopY,
+    Node destination,
+  ) {
     final resultLine = [startX, startY, stopX, stopY];
 
     if (startX == stopX && startY == stopY) return resultLine;

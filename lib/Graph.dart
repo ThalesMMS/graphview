@@ -34,16 +34,35 @@ class Graph {
     }
 
     _nodes.remove(node);
-    _edges
-        .removeWhere((edge) => edge.source == node || edge.destination == node);
+    _edges.removeWhere(
+      (edge) => edge.source == node || edge.destination == node,
+    );
     _cacheValid = false;
     notifyGraphObserver();
   }
 
   void removeNodes(List<Node> nodes) => nodes.forEach((it) => removeNode(it));
 
-  Edge addEdge(Node source, Node destination, {Paint? paint}) {
-    final edge = Edge(source, destination, paint: paint);
+  Edge addEdge(
+    Node source,
+    Node destination, {
+    Paint? paint,
+    String? label,
+    TextStyle? labelStyle,
+    double labelPosition = 0.5,
+    Offset? labelOffset,
+    TextDirection? labelTextDirection,
+  }) {
+    final edge = Edge(
+      source,
+      destination,
+      paint: paint,
+      label: label,
+      labelStyle: labelStyle,
+      labelPosition: labelPosition,
+      labelOffset: labelOffset,
+      labelTextDirection: labelTextDirection,
+    );
     addEdgeS(edge);
     return edge;
   }
@@ -85,15 +104,18 @@ class Graph {
 
   void removeEdgeFromPredecessor(Node? predecessor, Node? current) {
     _edges.removeWhere(
-        (edge) => edge.source == predecessor && edge.destination == current);
+      (edge) => edge.source == predecessor && edge.destination == current,
+    );
     _cacheValid = false;
   }
 
   bool hasNodes() => _nodes.isNotEmpty;
 
   Edge? getEdgeBetween(Node source, Node? destination) =>
-      _edges.firstWhereOrNull((element) =>
-          element.source == source && element.destination == destination);
+      _edges.firstWhereOrNull(
+        (element) =>
+            element.source == source && element.destination == destination,
+      );
 
   bool hasSuccessor(Node? node) => successorsOf(node).isNotEmpty;
 
@@ -132,24 +154,31 @@ class Graph {
       node != null && _nodes.contains(node) ||
       edge != null && _edges.contains(edge);
 
-  bool containsData(data) => _nodes.any((element) => element.data == data);
+  bool containsData(data) => _nodes.any(
+        (element) =>
+            // ignore: deprecated_member_use_from_same_package
+            element.data == data,
+      );
 
   Node getNodeAtPosition(int position) {
     if (position < 0) {
-//            throw IllegalArgumentException("position can't be negative")
+      //            throw IllegalArgumentException("position can't be negative")
     }
 
     final size = _nodes.length;
     if (position >= size) {
-//            throw IndexOutOfBoundsException("Position: $position, Size: $size")
+      //            throw IndexOutOfBoundsException("Position: $position, Size: $size")
     }
 
     return _nodes[position];
   }
 
   @Deprecated('Please use the builder and id mechanism to build the widgets')
-  Node getNodeAtUsingData(Widget data) =>
-      _nodes.firstWhere((element) => element.data == data);
+  Node getNodeAtUsingData(Widget data) => _nodes.firstWhere(
+        (element) =>
+            // ignore: deprecated_member_use_from_same_package
+            element.data == data,
+      );
 
   Node getNodeUsingKey(ValueKey key) =>
       _nodes.firstWhere((element) => element.key == key);
@@ -171,16 +200,17 @@ class Graph {
     var jsonString = {
       'nodes': [..._nodes.map((e) => e.hashCode.toString())],
       'edges': [
-        ..._edges.map((e) => {
-              'from': e.source.hashCode.toString(),
-              'to': e.destination.hashCode.toString()
-            })
-      ]
+        ..._edges.map(
+          (e) => {
+            'from': e.source.hashCode.toString(),
+            'to': e.destination.hashCode.toString(),
+          },
+        ),
+      ],
     };
 
     return json.encode(jsonString);
   }
-
 }
 
 extension GraphExtension on Graph {
@@ -191,10 +221,10 @@ extension GraphExtension on Graph {
     var maxY = double.negativeInfinity;
 
     for (final node in nodes) {
-        minX = min(minX, node.x);
-        minY = min(minY, node.y);
-        maxX = max(maxX, node.x + node.width);
-        maxY = max(maxY, node.y + node.height);
+      minX = min(minX, node.x);
+      minY = min(minY, node.y);
+      maxX = max(maxX, node.x + node.width);
+      maxY = max(maxY, node.y + node.height);
     }
 
     return Rect.fromLTRB(minX, minY, maxX, maxY);
@@ -206,12 +236,7 @@ extension GraphExtension on Graph {
   }
 }
 
-enum LineType {
-  Default,
-  DottedLine,
-  DashedLine,
-  SineLine,
-}
+enum LineType { Default, DottedLine, DashedLine, SineLine }
 
 class Node {
   ValueKey? key;
@@ -272,10 +297,42 @@ class Edge {
   Key? key;
   Paint? paint;
 
-  Edge(this.source, this.destination, {this.key, this.paint});
+  String? label;
+  TextStyle? labelStyle;
+  Offset labelOffset;
+  TextDirection? labelTextDirection;
+
+  double _labelPosition;
+
+  Edge(
+    this.source,
+    this.destination, {
+    this.key,
+    this.paint,
+    this.label,
+    this.labelStyle,
+    double labelPosition = 0.5,
+    Offset? labelOffset,
+    this.labelTextDirection,
+  })  : _labelPosition = _normalizeLabelPosition(labelPosition),
+        labelOffset = labelOffset ?? Offset.zero;
+
+  double get labelPosition => _labelPosition;
+
+  set labelPosition(double value) {
+    _labelPosition = _normalizeLabelPosition(value);
+  }
+
+  static double _normalizeLabelPosition(double value) {
+    if (value.isNaN) return 0.5;
+    if (value.isInfinite) return value.isNegative ? 0.0 : 1.0;
+    if (value <= 0.0) return 0.0;
+    if (value >= 1.0) return 1.0;
+    return value;
+  }
 
   @override
-  bool operator ==(Object? other) =>
+  bool operator ==(Object other) =>
       identical(this, other) || other is Edge && hashCode == other.hashCode;
 
   @override

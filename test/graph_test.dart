@@ -53,7 +53,7 @@ void main() {
       var widgetNode2 = Node.Id(Text('Lovely'));
       var doubleNode = Node.Id(5.6);
 
-      var edge = graph.addEdge(integerNode, Node.Id(4));
+      graph.addEdge(integerNode, Node.Id(4));
 
       var nodes = [
         integerNode,
@@ -64,16 +64,20 @@ void main() {
         doubleNode
       ];
 
+      var checksum = 0;
+
       for (var node in nodes) {
-        var stopwatch = Stopwatch()
-          ..start();
+        var stopwatch = Stopwatch()..start();
         for (var i = 1; i <= rows; i++) {
-          var hash = node.hashCode;
+          checksum = 0x1fffffff & (checksum + node.hashCode);
         }
         var timeTaken = stopwatch.elapsed.inMilliseconds;
         print('Time taken: $timeTaken ms for ${node.runtimeType} node');
         expect(timeTaken < 100, true);
       }
+
+      // Basic sanity check to ensure loop executed and checksum consumed
+      expect(checksum, isNot(equals(0)));
     });
   });
 }

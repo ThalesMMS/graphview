@@ -116,11 +116,9 @@ void main() {
   });
 
   group('Collapse Tests', () {
-    late Graph graph;
     late GraphViewController controller;
 
     setUp(() {
-      graph = Graph();
       controller = GraphViewController();
     });
 

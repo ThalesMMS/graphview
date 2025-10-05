@@ -9,6 +9,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:vector_math/vector_math_64.dart' as vm;
 
 part 'Algorithm.dart';
 part 'Graph.dart';
@@ -110,8 +111,8 @@ class GraphViewController {
 
   void _markExpandingDescendants(Graph graph, Node node) {
     for (final child in graph.successorsOf(node)) {
-        expandingNodes[child] = true;
-        if (!collapsedNodes.containsKey(child)) {
+      expandingNodes[child] = true;
+      if (!collapsedNodes.containsKey(child)) {
         _markExpandingDescendants(graph, child);
       }
     }
@@ -255,7 +256,10 @@ class GraphChildDelegate {
   }
 
   Widget? build(Node node) {
-    var child = node.data ?? builder(node);
+    final child = (node
+            // ignore: deprecated_member_use_from_same_package
+            .data) ??
+        builder(node);
     return KeyedSubtree(key: node.key, child: child);
   }
 
@@ -300,11 +304,11 @@ class GraphView extends StatefulWidget {
   final GraphViewController? controller;
   final bool _isBuilder;
 
-  Duration? panAnimationDuration;
-  Duration? toggleAnimationDuration;
-  ValueKey? initialNode;
-  bool autoZoomToFit = false;
-  late GraphChildDelegate delegate;
+  final Duration? panAnimationDuration;
+  final Duration? toggleAnimationDuration;
+  final ValueKey? initialNode;
+  final bool autoZoomToFit;
+  final GraphChildDelegate delegate;
   final bool centerGraph;
 
   GraphView({
@@ -318,6 +322,9 @@ class GraphView extends StatefulWidget {
     this.toggleAnimationDuration,
     this.centerGraph = false,
   })  : _isBuilder = false,
+        panAnimationDuration = null,
+        initialNode = null,
+        autoZoomToFit = false,
         delegate = GraphChildDelegate(
             graph: graph,
             algorithm: algorithm,
@@ -450,8 +457,8 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
     final translation = center - scaledNodeCenter;
 
     final target = Matrix4.identity()
-      ..translate(translation.dx, translation.dy)
-      ..scale(currentScale);
+      ..translateByVector3(vm.Vector3(translation.dx, translation.dy, 0))
+      ..scaleByVector3(vm.Vector3(currentScale, currentScale, 1));
 
     if (animated) {
       animateToMatrix(target);
@@ -483,8 +490,8 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
         (vp.height - scaledHeight) * 0.5 - bounds.top * scale);
 
     final target = Matrix4.identity()
-      ..translate(centerOffset.dx, centerOffset.dy)
-      ..scale(scale);
+      ..translateByVector3(vm.Vector3(centerOffset.dx, centerOffset.dy, 0))
+      ..scaleByVector3(vm.Vector3(scale, scale, 1));
     animateToMatrix(target);
   }
 
@@ -877,7 +884,7 @@ class RenderCustomLayoutBox extends RenderBox
       final expandingEdges =
           _delegate.controller?.getExpandingEdges(graph).toSet() ?? {};
 
-     for (final edge in graph.edges) {
+      for (final edge in graph.edges) {
         var edgePaintWithOpacity = Paint.from(edge.paint ?? edgePaint);
 
         // Apply fade effect for collapsing edges (fade out)
@@ -1255,8 +1262,11 @@ class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
         ...List<Widget>.generate(graph.nodeCount(), (index) {
           return Positioned(
             child: GestureDetector(
-              child:
-                  graph.nodes[index].data ?? widget.builder(graph.nodes[index]),
+              child: (graph
+                      .nodes[index]
+                      // ignore: deprecated_member_use_from_same_package
+                      .data) ??
+                  widget.builder(graph.nodes[index]),
               onPanUpdate: (details) {
                 graph.getNodeAtPosition(index).position += details.delta;
                 update();

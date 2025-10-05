@@ -415,6 +415,28 @@ var b = Node();
  graph.addEdge(a, b, paint: Paint()..color = Colors.red);
 ```
 
+### Add labels to edges
+Annotate connections with lightweight labels and adjust their placement.
+
+```dart
+graph.addEdge(
+  node1,
+  node2,
+  label: '42%',
+  labelStyle: TextStyle(
+    color: Colors.deepPurple,
+    fontWeight: FontWeight.w600,
+    background: Paint()..color = Colors.white,
+  ),
+  labelPosition: 0.35, // 0.0 = source, 1.0 = destination
+  labelOffset: Offset(0, -12),
+);
+
+final edge = graph.addEdge(nodeA, nodeB);
+edge.label = 'updated later';
+edge.labelPosition = 0.75;
+```
+
 ### Add focused Node
 You can focus on a specific node. This will allow scrolling to that node in the future, but for now , using it we can drag a node with realtime updates in force directed graph
 

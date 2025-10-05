@@ -3,11 +3,95 @@ part of graphview;
 abstract class EdgeRenderer {
   Map<Node, Offset>? _animatedPositions;
 
-  void setAnimatedPositions(Map<Node, Offset> positions) => _animatedPositions = positions;
+  static const TextStyle _defaultLabelStyle = TextStyle(
+    color: Colors.black,
+    fontSize: 12,
+  );
 
-  Offset getNodePosition(Node node) => _animatedPositions?[node] ?? node.position;
+  void setAnimatedPositions(Map<Node, Offset> positions) =>
+      _animatedPositions = positions;
+
+  Offset getNodePosition(Node node) =>
+      _animatedPositions?[node] ?? node.position;
 
   void renderEdge(Canvas canvas, Edge edge, Paint paint);
+
+  void paintLabelOnLine(Canvas canvas, Edge edge, Offset start, Offset end) {
+    final label = edge.label;
+    if (label == null || label.isEmpty) return;
+
+    final t = edge.labelPosition;
+    final position = Offset(
+      start.dx + (end.dx - start.dx) * t,
+      start.dy + (end.dy - start.dy) * t,
+    );
+
+    _paintLabel(canvas, edge, position);
+  }
+
+  void paintLabelOnPath(Canvas canvas, Edge edge, Path path) {
+    final label = edge.label;
+    if (label == null || label.isEmpty) return;
+
+    final metrics = path.computeMetrics().toList();
+    if (metrics.isEmpty) return;
+
+    final totalLength = metrics.fold<double>(
+      0.0,
+      (sum, metric) => sum + metric.length,
+    );
+    if (totalLength == 0.0) {
+      final fallbackTangent = metrics.first.getTangentForOffset(0);
+      if (fallbackTangent == null) return;
+      _paintLabel(canvas, edge, fallbackTangent.position);
+      return;
+    }
+
+    final target = totalLength * edge.labelPosition;
+    var traversed = 0.0;
+    Offset? position;
+
+    for (final metric in metrics) {
+      final nextTraversed = traversed + metric.length;
+      if (target <= nextTraversed) {
+        final localOffset = (target - traversed).clamp(0.0, metric.length);
+        final tangent = metric.getTangentForOffset(localOffset.toDouble());
+        if (tangent != null) {
+          position = tangent.position;
+        }
+        break;
+      }
+      traversed = nextTraversed;
+    }
+
+    position ??=
+        metrics.last.getTangentForOffset(metrics.last.length)?.position;
+    if (position == null) return;
+
+    _paintLabel(canvas, edge, position);
+  }
+
+  void _paintLabel(Canvas canvas, Edge edge, Offset position) {
+    final label = edge.label;
+    if (label == null || label.isEmpty) return;
+
+    final effectiveStyle = edge.labelStyle == null
+        ? _defaultLabelStyle
+        : _defaultLabelStyle.merge(edge.labelStyle);
+
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: effectiveStyle),
+      textDirection: edge.labelTextDirection ?? TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+    painter.layout();
+
+    final drawOffset = position -
+        Offset(painter.width * 0.5, painter.height * 0.5) +
+        edge.labelOffset;
+
+    painter.paint(canvas, drawOffset);
+  }
 
   Offset getNodeCenter(Node node) {
     final nodePosition = getNodePosition(node);
@@ -18,8 +102,13 @@ abstract class EdgeRenderer {
   }
 
   /// Draws a line between two points respecting the node's line type
-  void drawStyledLine(Canvas canvas, Offset start, Offset end, Paint paint,
-      {LineType? lineType}) {
+  void drawStyledLine(
+    Canvas canvas,
+    Offset start,
+    Offset end,
+    Paint paint, {
+    LineType? lineType,
+  }) {
     switch (lineType) {
       case LineType.DashedLine:
         drawDashedLine(canvas, start, end, paint, 0.6);
@@ -37,8 +126,12 @@ abstract class EdgeRenderer {
   }
 
   /// Draws a styled path respecting the node's line type
-  void drawStyledPath(Canvas canvas, Path path, Paint paint,
-      {LineType? lineType}) {
+  void drawStyledPath(
+    Canvas canvas,
+    Path path,
+    Paint paint, {
+    LineType? lineType,
+  }) {
     if (lineType == null || lineType == LineType.Default) {
       canvas.drawPath(path, paint);
     } else {
@@ -50,8 +143,13 @@ abstract class EdgeRenderer {
   }
 
   /// Draws a dashed line between two points
-  void drawDashedLine(Canvas canvas, Offset source, Offset destination,
-      Paint paint, double lineLength) {
+  void drawDashedLine(
+    Canvas canvas,
+    Offset source,
+    Offset destination,
+    Paint paint,
+    double lineLength,
+  ) {
     final dx = destination.dx - source.dx;
     final dy = destination.dy - source.dy;
     final distance = sqrt(dx * dx + dy * dy);
@@ -88,7 +186,12 @@ abstract class EdgeRenderer {
   }
 
   /// Draws a sine wave line between two points
-  void drawSineLine(Canvas canvas, Offset source, Offset destination, Paint paint) {
+  void drawSineLine(
+    Canvas canvas,
+    Offset source,
+    Offset destination,
+    Paint paint,
+  ) {
     final originalStrokeWidth = paint.strokeWidth;
     paint.strokeWidth = 1.5;
 

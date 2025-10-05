@@ -48,3 +48,5 @@ linter:
 analyzer:
   strong-mode:
     implicit-casts: false
+  exclude:
+    - example/**
