@@ -9,10 +9,79 @@ class TreeViewPage extends StatefulWidget {
 }
 
 class _TreeViewPageState extends State<TreeViewPage> with TickerProviderStateMixin {
-
-  GraphViewController _controller = GraphViewController();
+  final GraphViewController _controller = GraphViewController();
   final Random r = Random();
   int nextNodeId = 1;
+  bool _useEditableLabels = true;
+  String? _lastEditedLabelSummary;
+
+  EdgeWidgetBuilder? get _editableEdgeBuilder =>
+      _useEditableLabels ? _buildEditableEdgeLabel : null;
+
+  Widget _buildEditableEdgeLabel(
+    Edge edge,
+    EdgeLabelBuilderParams params,
+  ) {
+    final textStyle = edge.labelStyle ??
+        const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.indigo,
+        );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.edit_outlined, size: 14, color: Colors.indigo),
+            const SizedBox(width: 6),
+            // Tapping the chip enters edit mode; EditableEdgeLabel updates the
+            // edge text and forces a layout recalculation for us.
+            EditableEdgeLabel(
+              edge: edge,
+              graph: params.graph,
+              graphViewController: params.graphViewController,
+              onChanged: (value) {
+                params.onChanged(value);
+              },
+              onSubmitted: (value) {
+                params.onSubmitted(value);
+                setState(() {
+                  _lastEditedLabelSummary =
+                      '${_formatEdgeName(edge)} → "${value.trim().isEmpty ? 'sem rótulo' : value}"';
+                });
+              },
+              placeholder: 'Toque para editar',
+              textStyle: textStyle,
+              placeholderStyle: textStyle.copyWith(
+                fontStyle: FontStyle.italic,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatEdgeName(Edge edge) {
+    final source = edge.source.key?.value ?? '?';
+    final target = edge.destination.key?.value ?? '?';
+    return '$source → $target';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,11 +165,54 @@ class _TreeViewPageState extends State<TreeViewPage> with TickerProviderStateMix
               ],
             ),
 
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Switch(
+                    value: _useEditableLabels,
+                    onChanged: (value) {
+                      setState(() {
+                        _useEditableLabels = value;
+                      });
+                      // Forcing a recalculation ensures the layout is updated
+                      // when we swap between painted labels and editable widgets.
+                      _controller.forceRecalculation();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Usar rótulos de aresta editáveis (toque no chip do rótulo para editar).',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_lastEditedLabelSummary != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Última alteração: $_lastEditedLabelSummary',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Colors.indigo.shade700),
+                ),
+              ),
+
             Expanded(
               child: GraphView.builder(
                 controller: _controller,
                 graph: graph,
                 algorithm: algorithm,
+                paint: Paint()
+                  ..color = Colors.blueGrey.shade200
+                  ..strokeWidth = 1.2,
+                // When `_useEditableLabels` is true we provide the edgeBuilder so
+                // every connection renders an editable chip instead of static text.
+                edgeBuilder: _editableEdgeBuilder,
                 initialNode: ValueKey(1),
                 panAnimationDuration: Duration(milliseconds: 600),
                 toggleAnimationDuration: Duration(milliseconds: 600),
@@ -219,62 +331,123 @@ class _TreeViewPageState extends State<TreeViewPage> with TickerProviderStateMix
     ];
 
     // Build the graph structure
-    graph.addEdge(root, tech);
-    graph.addEdge(root, business, paint: Paint()..color = Colors.blue);
-    graph.addEdge(root, personal, paint: Paint()..color = Colors.green);
+    final labelStyle = const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: Colors.indigo,
+    );
+
+    graph.addEdge(root, tech,
+        label: 'Estratégia técnica',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -18));
+    graph.addEdge(root, business,
+        paint: Paint()..color = Colors.blue,
+        label: 'Iniciativas de negócio',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -18));
+    graph.addEdge(root, personal,
+        paint: Paint()..color = Colors.green,
+        label: 'Bem-estar da equipe',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -18));
 
 // // Technology branch (left side - large subtree)
-    graph.addEdge(tech, ai);
-    graph.addEdge(tech, web);
-    graph.addEdge(tech, mobile);
+    graph.addEdge(tech, ai,
+        label: 'IA', labelStyle: labelStyle, labelOffset: const Offset(0, -16));
+    graph.addEdge(tech, web,
+        label: 'Web', labelStyle: labelStyle, labelOffset: const Offset(0, -16));
+    graph.addEdge(tech, mobile,
+        label: 'Mobile',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -16));
 
 // AI subtree
     for (final aiNode in aiSubtopics) {
-      graph.addEdge(ai, aiNode, paint: Paint()..color = Colors.purple);
+      graph.addEdge(ai, aiNode,
+          paint: Paint()..color = Colors.purple,
+          labelStyle: labelStyle,
+          labelOffset: const Offset(0, -14));
     }
 
 // Web subtree with deep nesting
     for (final webNode in webSubtopics) {
-      graph.addEdge(web, webNode, paint: Paint()..color = Colors.orange);
+      graph.addEdge(web, webNode,
+          paint: Paint()..color = Colors.orange,
+          labelStyle: labelStyle,
+          labelOffset: const Offset(0, -14));
     }
 
 // Frontend details (3rd level)
     for (final frontendNode in frontendDetails) {
-      graph.addEdge(webSubtopics[0], frontendNode, paint: Paint()..color = Colors.cyan);
+      graph.addEdge(webSubtopics[0], frontendNode,
+          paint: Paint()..color = Colors.cyan,
+          labelStyle: labelStyle,
+          labelOffset: const Offset(0, -12));
     }
 
 // Backend details (3rd level) - even deeper
     for (final backendNode in backendDetails) {
-      graph.addEdge(webSubtopics[1], backendNode, paint: Paint()..color = Colors.teal);
+      graph.addEdge(webSubtopics[1], backendNode,
+          paint: Paint()..color = Colors.teal,
+          labelStyle: labelStyle,
+          labelOffset: const Offset(0, -12));
     }
 
 // Business branch (right side - smaller subtree)
-    graph.addEdge(business, marketing);
-    graph.addEdge(business, sales);
-    graph.addEdge(business, finance);
+    graph.addEdge(business, marketing,
+        label: 'Marketing',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -16));
+    graph.addEdge(business, sales,
+        label: 'Vendas',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -16));
+    graph.addEdge(business, finance,
+        label: 'Finanças',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -16));
 
 // Marketing details
     for (final marketingNode in marketingDetails) {
-      graph.addEdge(marketing, marketingNode, paint: Paint()..color = Colors.red);
+      graph.addEdge(marketing, marketingNode,
+          paint: Paint()..color = Colors.red,
+          labelStyle: labelStyle,
+          labelOffset: const Offset(0, -12));
     }
 
 // Sales details
     for (final salesNode in salesDetails) {
-      graph.addEdge(sales, salesNode, paint: Paint()..color = Colors.indigo);
+      graph.addEdge(sales, salesNode,
+          paint: Paint()..color = Colors.indigo,
+          labelStyle: labelStyle,
+          labelOffset: const Offset(0, -12));
     }
 
 // Personal branch (right side - medium subtree)
-    graph.addEdge(personal, health);
-    graph.addEdge(personal, hobbies);
+    graph.addEdge(personal, health,
+        label: 'Saúde',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -16));
+    graph.addEdge(personal, hobbies,
+        label: 'Hobbies',
+        labelStyle: labelStyle,
+        labelOffset: const Offset(0, -16));
 
 // Health details
     for (final healthNode in healthDetails) {
-      graph.addEdge(health, healthNode, paint: Paint()..color = Colors.lightGreen);
+      graph.addEdge(health, healthNode,
+          paint: Paint()..color = Colors.lightGreen,
+          labelStyle: labelStyle,
+          labelOffset: const Offset(0, -12));
     }
 
 // Exercise details (3rd level)
     for (final exerciseNode in exerciseDetails) {
-      graph.addEdge(healthDetails[0], exerciseNode, paint: Paint()..color = Colors.amber);
+      graph.addEdge(healthDetails[0], exerciseNode,
+          paint: Paint()..color = Colors.amber,
+          labelStyle: labelStyle,
+          labelOffset: const Offset(0, -12));
     }
     _controller.setInitiallyCollapsedNodes(graph, [tech, business, personal]);
 

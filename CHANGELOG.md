@@ -1,3 +1,9 @@
+## 1.5.1
+
+- **NEW**: `edgeBuilder` callback for `GraphView`/`GraphView.builder` allows rendering edge labels with widgets
+- **NEW**: `EditableEdgeLabel` helper provides inline text editing with automatic layout recalculation
+- **EXAMPLE**: Updated `tree_graphview.dart` to showcase editable labels and how to toggle them at runtime
+
 ## 1.5.0
 
 - **MAJOR UPDATE**: Added 5 new layout algorithms
