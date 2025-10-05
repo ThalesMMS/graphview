@@ -33,9 +33,13 @@ part 'tree/CircleLayoutAlgorithm.dart';
 part 'tree/RadialTreeLayoutAlgorithm.dart';
 part 'tree/TidierTreeLayoutAlgorithm.dart';
 part 'tree/TreeEdgeRenderer.dart';
+part 'widgets/editable_edge_label.dart';
 
 typedef NodeWidgetBuilder = Widget Function(Node node);
-typedef EdgeWidgetBuilder = Widget Function(Edge edge);
+typedef EdgeWidgetBuilder = Widget Function(
+  Edge edge,
+  EdgeLabelBuilderParams params,
+);
 
 class GraphViewController {
   _GraphViewState? _state;
@@ -270,11 +274,35 @@ class GraphChildDelegate {
     if (builder == null) {
       return null;
     }
-    final child = builder(edge);
+    final child = builder(edge, _createEdgeLabelBuilderParams(edge));
     if (child == null) {
       return null;
     }
     return KeyedSubtree(key: edge.key, child: child);
+  }
+
+  EdgeLabelBuilderParams _createEdgeLabelBuilderParams(Edge edge) {
+    void notify() {
+      graph.notifyGraphObserver();
+      controller?.forceRecalculation();
+    }
+
+    void updateLabel(String value) {
+      if (edge.label == value) {
+        return;
+      }
+      edge.label = value;
+      notify();
+    }
+
+    return EdgeLabelBuilderParams(
+      edge: edge,
+      graph: graph,
+      graphViewController: controller,
+      onChanged: updateLabel,
+      onSubmitted: updateLabel,
+      refreshGraph: notify,
+    );
   }
 
   bool shouldRebuild(GraphChildDelegate oldDelegate) {
@@ -347,7 +375,7 @@ class GraphView extends StatefulWidget {
             graph: graph,
             algorithm: algorithm,
             builder: builder,
-            controller: null,
+            controller: controller,
             edgeBuilder: edgeBuilder),
         super(key: key);
 
