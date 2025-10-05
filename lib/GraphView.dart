@@ -270,7 +270,11 @@ class GraphChildDelegate {
     if (builder == null) {
       return null;
     }
-    return builder(edge);
+    final child = builder(edge);
+    if (child == null) {
+      return null;
+    }
+    return KeyedSubtree(key: edge.key, child: child);
   }
 
   bool shouldRebuild(GraphChildDelegate oldDelegate) {
@@ -548,6 +552,10 @@ abstract class GraphChildManager {
 
   void reuseChild(Node node);
 
+  void buildEdgeLabel(Edge edge);
+
+  void reuseEdgeLabel(Edge edge);
+
   void endLayout();
 }
 
@@ -607,14 +615,18 @@ class GraphViewElement extends RenderObjectElement
 
   // Contains all children, including those that are keyed
   Map<Node, Element> _nodeToElement = <Node, Element>{};
+  Map<Edge, Element> _edgeToElement = <Edge, Element>{};
   Map<Key, Element> _keyToElement = <Key, Element>{};
 
   // Used between startLayout() & endLayout() to compute the new values
   Map<Node, Element>? _newNodeToElement;
+  Map<Edge, Element>? _newEdgeToElement;
   Map<Key, Element>? _newKeyToElement;
 
   bool get _debugIsDoingLayout =>
-      _newNodeToElement != null && _newKeyToElement != null;
+      _newNodeToElement != null &&
+      _newEdgeToElement != null &&
+      _newKeyToElement != null;
 
   @override
   void performRebuild() {
@@ -628,30 +640,50 @@ class GraphViewElement extends RenderObjectElement
   void forgetChild(Element child) {
     assert(!_debugIsDoingLayout);
     super.forgetChild(child);
-    _nodeToElement.remove(child.slot as Node);
+    final slot = child.slot;
+    if (slot is Node) {
+      _nodeToElement.remove(slot);
+    } else if (slot is Edge) {
+      _edgeToElement.remove(slot);
+    }
     if (child.widget.key != null) {
       _keyToElement.remove(child.widget.key);
     }
   }
 
   @override
-  void insertRenderObjectChild(RenderBox child, Node slot) {
-    renderObject._insertChild(child, slot);
+  void insertRenderObjectChild(RenderBox child, Object slot) {
+    if (slot is Node) {
+      renderObject._insertChild(child, slot);
+    } else if (slot is Edge) {
+      renderObject._insertEdgeLabel(child, slot);
+    } else {
+      throw FlutterError('Unsupported slot type: ${slot.runtimeType}');
+    }
   }
 
   @override
-  void moveRenderObjectChild(RenderBox child, Node oldSlot, Node newSlot) {
-    renderObject._moveChild(child, from: oldSlot, to: newSlot);
+  void moveRenderObjectChild(RenderBox child, Object? oldSlot, Object? newSlot) {
+    if (oldSlot is Node && newSlot is Node) {
+      renderObject._moveChild(child, from: oldSlot, to: newSlot);
+    } else if (oldSlot is Edge && newSlot is Edge) {
+      renderObject._moveEdgeLabel(child, from: oldSlot, to: newSlot);
+    }
   }
 
   @override
-  void removeRenderObjectChild(RenderBox child, Node slot) {
-    renderObject._removeChild(child, slot);
+  void removeRenderObjectChild(RenderBox child, Object slot) {
+    if (slot is Node) {
+      renderObject._removeChild(child, slot);
+    } else if (slot is Edge) {
+      renderObject._removeEdgeLabel(child, slot);
+    }
   }
 
   @override
   void visitChildren(ElementVisitor visitor) {
     _nodeToElement.values.forEach(visitor);
+    _edgeToElement.values.forEach(visitor);
   }
 
   // ---- GraphChildManager implementation ----
@@ -660,6 +692,7 @@ class GraphViewElement extends RenderObjectElement
   void startLayout() {
     assert(!_debugIsDoingLayout);
     _newNodeToElement = <Node, Element>{};
+    _newEdgeToElement = <Edge, Element>{};
     _newKeyToElement = <Key, Element>{};
   }
 
@@ -672,7 +705,7 @@ class GraphViewElement extends RenderObjectElement
         return;
       }
 
-      final oldElement = _retrieveOldElement(newWidget, node);
+      final oldElement = _retrieveOldElement(newWidget, node: node);
       final newChild = updateChild(oldElement, newWidget, node);
 
       if (newChild != null) {
@@ -705,18 +738,73 @@ class GraphViewElement extends RenderObjectElement
     }
   }
 
-  Element? _retrieveOldElement(Widget newWidget, Node node) {
+  @override
+  void buildEdgeLabel(Edge edge) {
+    assert(_debugIsDoingLayout);
+    owner!.buildScope(this, () {
+      final newWidget = widget.delegate.buildEdgeLabel(edge);
+      if (newWidget == null) {
+        return;
+      }
+
+      final oldElement = _retrieveOldElement(newWidget, edge: edge);
+      final newChild = updateChild(oldElement, newWidget, edge);
+
+      if (newChild != null) {
+        assert(_newEdgeToElement![edge] == null);
+        _newEdgeToElement![edge] = newChild;
+        if (newWidget.key != null) {
+          assert(_newKeyToElement![newWidget.key!] == null);
+          _newKeyToElement![newWidget.key!] = newChild;
+        }
+      }
+    });
+  }
+
+  @override
+  void reuseEdgeLabel(Edge edge) {
+    assert(_debugIsDoingLayout);
+    final elementToReuse = _edgeToElement.remove(edge);
+    assert(
+      elementToReuse != null,
+      'Expected to re-use an edge element at $edge, but none was found.',
+    );
+    final reusedElement = elementToReuse!;
+    _newEdgeToElement![edge] = reusedElement;
+    if (reusedElement.widget.key != null) {
+      assert(_keyToElement.containsKey(reusedElement.widget.key));
+      assert(_keyToElement[reusedElement.widget.key] == reusedElement);
+      _newKeyToElement![reusedElement.widget.key!] =
+          _keyToElement.remove(reusedElement.widget.key)!;
+    }
+  }
+
+  Element? _retrieveOldElement(Widget newWidget, {Node? node, Edge? edge}) {
     if (newWidget.key != null) {
       final result = _keyToElement.remove(newWidget.key);
       if (result != null) {
-        _nodeToElement.remove(result.slot as Node);
+        final slot = result.slot;
+        if (slot is Node) {
+          _nodeToElement.remove(slot);
+        } else if (slot is Edge) {
+          _edgeToElement.remove(slot);
+        }
       }
       return result;
     }
 
-    final potentialOldElement = _nodeToElement[node];
-    if (potentialOldElement != null && potentialOldElement.widget.key == null) {
-      return _nodeToElement.remove(node);
+    if (node != null) {
+      final potentialOldElement = _nodeToElement[node];
+      if (potentialOldElement != null && potentialOldElement.widget.key == null) {
+        return _nodeToElement.remove(node);
+      }
+    }
+
+    if (edge != null) {
+      final potentialOldElement = _edgeToElement[edge];
+      if (potentialOldElement != null && potentialOldElement.widget.key == null) {
+        return _edgeToElement.remove(edge);
+      }
     }
     return null;
   }
@@ -734,14 +822,23 @@ class GraphViewElement extends RenderObjectElement
         assert(_keyToElement.containsValue(element));
       }
     }
+    for (final element in _edgeToElement.values) {
+      if (element.widget.key == null) {
+        updateChild(element, null, null);
+      } else {
+        assert(_keyToElement.containsValue(element));
+      }
+    }
     for (final element in _keyToElement.values) {
       assert(element.widget.key != null);
       updateChild(element, null, null);
     }
 
     _nodeToElement = _newNodeToElement!;
+    _edgeToElement = _newEdgeToElement!;
     _keyToElement = _newKeyToElement!;
     _newNodeToElement = null;
+    _newEdgeToElement = null;
     _newKeyToElement = null;
     assert(!_debugIsDoingLayout);
 
@@ -771,6 +868,7 @@ class RenderCustomLayoutBox extends RenderBox
   final animatedPositions = <Node, Offset>{};
   final _children = <Node, RenderBox>{};
   final _activeChildrenForLayoutPass = <Node, RenderBox>{};
+  final _edgeLabels = <Edge, RenderBox>{};
   EdgeWidgetBuilder? _edgeLabelBuilder;
 
   RenderCustomLayoutBox(
@@ -810,6 +908,28 @@ class RenderCustomLayoutBox extends RenderBox
     return child;
   }
 
+  RenderBox? buildOrObtainEdgeLabel(Edge edge) {
+    assert(debugDoingThisLayout);
+
+    if (_edgeLabelBuilder == null || childManager == null) {
+      return null;
+    }
+
+    if (_needsFullRecalculation || !_edgeLabels.containsKey(edge)) {
+      invokeLayoutCallback<BoxConstraints>((BoxConstraints _) {
+        childManager!.buildEdgeLabel(edge);
+      });
+    } else {
+      childManager!.reuseEdgeLabel(edge);
+    }
+
+    if (!_edgeLabels.containsKey(edge)) {
+      return null;
+    }
+
+    return _edgeLabels[edge]!;
+  }
+
   GraphChildDelegate get delegate => _delegate;
 
   Graph get graph => _delegate.getVisibleGraph();
@@ -840,6 +960,9 @@ class RenderCustomLayoutBox extends RenderBox
     for (final child in _children.values) {
       child.attach(owner);
     }
+    for (final child in _edgeLabels.values) {
+      child.attach(owner);
+    }
   }
 
   @override
@@ -847,6 +970,9 @@ class RenderCustomLayoutBox extends RenderBox
     _nodeAnimationController.removeListener(_onAnimationTick);
     super.detach();
     for (final child in _children.values) {
+      child.detach();
+    }
+    for (final child in _edgeLabels.values) {
       child.detach();
     }
   }
@@ -876,7 +1002,7 @@ class RenderCustomLayoutBox extends RenderBox
       return;
     }
     _edgeLabelBuilder = value;
-    markNeedsPaint();
+    markNeedsLayout();
   }
 
   AnimationController get nodeAnimationController => _nodeAnimationController;
@@ -895,7 +1021,7 @@ class RenderCustomLayoutBox extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    if (_children.isEmpty) return;
+    if (_children.isEmpty && _edgeLabels.isEmpty) return;
 
     if (enableAnimation) {
       final t = _nodeAnimationController.value;
@@ -941,6 +1067,14 @@ class RenderCustomLayoutBox extends RenderBox
 
       context.canvas.restore();
 
+      _paintEdgeLabels(
+        context,
+        offset,
+        collapsingEdges: collapsingEdges,
+        expandingEdges: expandingEdges,
+        t: t,
+      );
+
       _paintNodes(context, offset, t);
     } else {
       context.canvas.save();
@@ -949,6 +1083,14 @@ class RenderCustomLayoutBox extends RenderBox
         algorithm.renderer?.renderEdge(context.canvas, edge, edgePaint);
       });
       context.canvas.restore();
+
+      _paintEdgeLabels(
+        context,
+        offset,
+        collapsingEdges: const <Edge>{},
+        expandingEdges: const <Edge>{},
+        t: 1.0,
+      );
 
       for (final entry in _children.entries) {
         final node = entry.key;
@@ -977,6 +1119,8 @@ class RenderCustomLayoutBox extends RenderBox
 
     size = _cachedSize ?? Size.zero;
 
+    _layoutEdgeLabels(looseConstraints);
+
     invokeLayoutCallback<BoxConstraints>((BoxConstraints _) {
       childManager!.endLayout();
     });
@@ -985,6 +1129,71 @@ class RenderCustomLayoutBox extends RenderBox
       _updateAnimationStates();
     } else {
       _updateNodePositions();
+    }
+  }
+
+  void _paintEdgeLabels(
+    PaintingContext context,
+    Offset offset, {
+    required Set<Edge> collapsingEdges,
+    required Set<Edge> expandingEdges,
+    required double t,
+  }) {
+    if (_edgeLabels.isEmpty || _edgeLabelBuilder == null) {
+      return;
+    }
+
+    for (final entry in _edgeLabels.entries) {
+      final edge = entry.key;
+      final child = entry.value;
+      final data = child.parentData as EdgeBoxData;
+
+      final sourceVisible = _delegate.isNodeVisible(edge.source);
+      final destinationVisible = _delegate.isNodeVisible(edge.destination);
+      final shouldPaint = (sourceVisible && destinationVisible) ||
+          collapsingEdges.contains(edge) ||
+          expandingEdges.contains(edge);
+
+      if (!shouldPaint) {
+        continue;
+      }
+
+      Offset paintOffset;
+      if (enableAnimation) {
+        paintOffset =
+            _edgeLabelOffsetFor(edge, child, positions: animatedPositions);
+      } else {
+        paintOffset = data.offset;
+      }
+
+      int alpha = 255;
+      if (enableAnimation) {
+        if (collapsingEdges.contains(edge)) {
+          alpha = max(0, min(255, ((1.0 - t) * 255).round()));
+        } else if (expandingEdges.contains(edge)) {
+          alpha = max(0, min(255, (t * 255).round()));
+        }
+      }
+
+      if (alpha == 0) {
+        continue;
+      }
+
+      final paintPosition = offset + paintOffset;
+
+      if (alpha != 255) {
+        context.pushOpacity(paintPosition, alpha, (context, innerOffset) {
+          context.paintChild(child, innerOffset);
+        });
+      } else {
+        context.paintChild(child, paintPosition);
+      }
+
+      if (!enableAnimation || _nodeAnimationController.isCompleted) {
+        final target = data.targetOffset ?? paintOffset;
+        data.offset = target;
+        data.startOffset = target;
+      }
     }
   }
 
@@ -1107,6 +1316,64 @@ class RenderCustomLayoutBox extends RenderBox
     }
   }
 
+  void _layoutEdgeLabels(BoxConstraints constraints) {
+    if (_edgeLabelBuilder == null) {
+      return;
+    }
+
+    for (final edge in graph.edges) {
+      final child = buildOrObtainEdgeLabel(edge);
+      if (child == null) {
+        continue;
+      }
+
+      child.layout(constraints, parentUsesSize: true);
+      final data = child.parentData as EdgeBoxData;
+      final newOffset = _edgeLabelOffsetFor(edge, child);
+      final previousTarget = data.targetOffset;
+
+      if (previousTarget == null) {
+        data.startOffset = newOffset;
+      } else if (previousTarget != newOffset) {
+        data.startOffset = previousTarget;
+      }
+
+      data.targetOffset = newOffset;
+
+      if (!enableAnimation) {
+        data.offset = newOffset;
+      } else if (data.startOffset == null) {
+        data.startOffset = newOffset;
+      }
+    }
+  }
+
+  Offset _edgeLabelOffsetFor(Edge edge, RenderBox child,
+      {Map<Node, Offset>? positions}) {
+    Offset sourcePosition = positions?[edge.source] ?? edge.source.position;
+    Offset destinationPosition =
+        positions?[edge.destination] ?? edge.destination.position;
+
+    final sourceCenter = Offset(
+      sourcePosition.dx + edge.source.width * 0.5,
+      sourcePosition.dy + edge.source.height * 0.5,
+    );
+    final destinationCenter = Offset(
+      destinationPosition.dx + edge.destination.width * 0.5,
+      destinationPosition.dy + edge.destination.height * 0.5,
+    );
+
+    final t = edge.labelPosition;
+    final center = Offset(
+      sourceCenter.dx + (destinationCenter.dx - sourceCenter.dx) * t,
+      sourceCenter.dy + (destinationCenter.dy - sourceCenter.dy) * t,
+    ) +
+        edge.labelOffset;
+
+    return center -
+        Offset(child.size.width * 0.5, child.size.height * 0.5);
+  }
+
   void _updateAnimationStates() {
     for (final entry in _children.entries) {
       final node = entry.key;
@@ -1183,11 +1450,37 @@ class RenderCustomLayoutBox extends RenderBox
         if (isHit) return true;
       }
     }
+
+    for (final entry in _edgeLabels.entries) {
+      final edge = entry.key;
+      final child = entry.value;
+      final edgeData = child.parentData as EdgeBoxData;
+
+      if (!_delegate.isNodeVisible(edge.source) ||
+          !_delegate.isNodeVisible(edge.destination)) {
+        continue;
+      }
+
+      final isHit = result.addWithPaintOffset(
+        offset: edgeData.offset,
+        position: position,
+        hitTest: (BoxHitTestResult result, Offset transformed) {
+          return child.hitTest(result, position: transformed);
+        },
+      );
+      if (isHit) return true;
+    }
     return false;
   }
 
   @override
   void setupParentData(RenderBox child) {
+    if (_edgeLabels.containsValue(child)) {
+      if (child.parentData is! EdgeBoxData) {
+        child.parentData = EdgeBoxData();
+      }
+      return;
+    }
     if (child.parentData is! NodeBoxData) {
       child.parentData = NodeBoxData();
     }
@@ -1213,9 +1506,31 @@ class RenderCustomLayoutBox extends RenderBox
     dropChild(child);
   }
 
+  void _insertEdgeLabel(RenderBox child, Edge slot) {
+    _edgeLabels[slot] = child;
+    adoptChild(child);
+  }
+
+  void _moveEdgeLabel(RenderBox child, {required Edge from, required Edge to}) {
+    if (_edgeLabels[from] == child) {
+      _edgeLabels.remove(from);
+    }
+    _edgeLabels[to] = child;
+  }
+
+  void _removeEdgeLabel(RenderBox child, Edge slot) {
+    if (_edgeLabels[slot] == child) {
+      _edgeLabels.remove(slot);
+    }
+    dropChild(child);
+  }
+
   @override
   void visitChildren(RenderObjectVisitor visitor) {
     for (final child in _children.values) {
+      visitor(child);
+    }
+    for (final child in _edgeLabels.values) {
       visitor(child);
     }
   }
@@ -1230,6 +1545,11 @@ class RenderCustomLayoutBox extends RenderBox
 }
 
 class NodeBoxData extends ContainerBoxParentData<RenderBox> {
+  Offset? startOffset;
+  Offset? targetOffset;
+}
+
+class EdgeBoxData extends BoxParentData {
   Offset? startOffset;
   Offset? targetOffset;
 }
