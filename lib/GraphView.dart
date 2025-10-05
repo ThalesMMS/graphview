@@ -213,6 +213,7 @@ class GraphChildDelegate {
   final Graph graph;
   final Algorithm algorithm;
   final NodeWidgetBuilder builder;
+  final EdgeWidgetBuilder? edgeBuilder;
   GraphViewController? controller;
   final bool centerGraph;
   Graph? _cachedVisibleGraph;
@@ -223,6 +224,7 @@ class GraphChildDelegate {
     required this.algorithm,
     required this.builder,
     required this.controller,
+    this.edgeBuilder,
     this.centerGraph = false,
   });
 
@@ -263,9 +265,19 @@ class GraphChildDelegate {
     return KeyedSubtree(key: node.key, child: child);
   }
 
+  Widget? buildEdgeLabel(Edge edge) {
+    final builder = edgeBuilder;
+    if (builder == null) {
+      return null;
+    }
+    return builder(edge);
+  }
+
   bool shouldRebuild(GraphChildDelegate oldDelegate) {
     final result =
-        graph != oldDelegate.graph || algorithm != oldDelegate.algorithm;
+        graph != oldDelegate.graph ||
+        algorithm != oldDelegate.algorithm ||
+        edgeBuilder != oldDelegate.edgeBuilder;
     if (result) _needsRecalculation = true;
     return result;
   }
@@ -300,6 +312,7 @@ class GraphView extends StatefulWidget {
   final Algorithm algorithm;
   final Paint? paint;
   final NodeWidgetBuilder builder;
+  final EdgeWidgetBuilder? edgeBuilder;
   final bool animated;
   final GraphViewController? controller;
   final bool _isBuilder;
@@ -317,6 +330,7 @@ class GraphView extends StatefulWidget {
     required this.algorithm,
     this.paint,
     required this.builder,
+    this.edgeBuilder,
     this.animated = true,
     this.controller,
     this.toggleAnimationDuration,
@@ -329,7 +343,8 @@ class GraphView extends StatefulWidget {
             graph: graph,
             algorithm: algorithm,
             builder: builder,
-            controller: null),
+            controller: null,
+            edgeBuilder: edgeBuilder),
         super(key: key);
 
   GraphView.builder({
@@ -338,6 +353,7 @@ class GraphView extends StatefulWidget {
     required this.algorithm,
     this.paint,
     required this.builder,
+    this.edgeBuilder,
     this.controller,
     this.animated = true,
     this.initialNode,
@@ -351,6 +367,7 @@ class GraphView extends StatefulWidget {
             algorithm: algorithm,
             builder: builder,
             controller: controller,
+            edgeBuilder: edgeBuilder,
             centerGraph: centerGraph),
         assert(!(autoZoomToFit && initialNode != null),
             'Cannot use both autoZoomToFit and initialNode together. Choose one.'),
@@ -414,6 +431,7 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
       nodeAnimationController: _nodeController,
       enableAnimation: widget.animated,
       delegate: widget.delegate,
+      edgeBuilder: widget.delegate.edgeBuilder,
     );
 
     if (widget._isBuilder) {
@@ -538,6 +556,7 @@ class GraphViewWidget extends RenderObjectWidget {
   final Paint? paint;
   final AnimationController nodeAnimationController;
   final bool enableAnimation;
+  final EdgeWidgetBuilder? edgeBuilder;
 
   const GraphViewWidget({
     Key? key,
@@ -545,6 +564,7 @@ class GraphViewWidget extends RenderObjectWidget {
     this.paint,
     required this.nodeAnimationController,
     required this.enableAnimation,
+    this.edgeBuilder,
   }) : super(key: key);
 
   @override
@@ -558,6 +578,7 @@ class GraphViewWidget extends RenderObjectWidget {
       enableAnimation,
       nodeAnimationController: nodeAnimationController,
       childManager: context as GraphChildManager,
+      edgeLabelBuilder: edgeBuilder,
     );
   }
 
@@ -568,7 +589,8 @@ class GraphViewWidget extends RenderObjectWidget {
       ..delegate = delegate
       ..edgePaint = paint
       ..nodeAnimationController = nodeAnimationController
-      ..enableAnimation = enableAnimation;
+      ..enableAnimation = enableAnimation
+      ..edgeLabelBuilder = edgeBuilder;
   }
 }
 
@@ -749,6 +771,7 @@ class RenderCustomLayoutBox extends RenderBox
   final animatedPositions = <Node, Offset>{};
   final _children = <Node, RenderBox>{};
   final _activeChildrenForLayoutPass = <Node, RenderBox>{};
+  EdgeWidgetBuilder? _edgeLabelBuilder;
 
   RenderCustomLayoutBox(
     GraphChildDelegate delegate,
@@ -756,11 +779,13 @@ class RenderCustomLayoutBox extends RenderBox
     bool enableAnimation, {
     required AnimationController nodeAnimationController,
     this.childManager,
+    EdgeWidgetBuilder? edgeLabelBuilder,
   }) {
     _nodeAnimationController = nodeAnimationController;
     _delegate = delegate;
     edgePaint = paint;
     this.enableAnimation = enableAnimation;
+    _edgeLabelBuilder = edgeLabelBuilder;
   }
 
   RenderBox? buildOrObtainChildFor(Node node) {
@@ -790,6 +815,8 @@ class RenderCustomLayoutBox extends RenderBox
   Graph get graph => _delegate.getVisibleGraph();
 
   Algorithm get algorithm => _delegate.algorithm;
+
+  EdgeWidgetBuilder? get edgeLabelBuilder => _edgeLabelBuilder;
 
   set delegate(GraphChildDelegate value) {
     // if (value != _delegate) {
@@ -841,6 +868,14 @@ class RenderCustomLayoutBox extends RenderBox
       ..strokeCap = StrokeCap.butt;
 
     _paint = newPaint;
+    markNeedsPaint();
+  }
+
+  set edgeLabelBuilder(EdgeWidgetBuilder? value) {
+    if (_edgeLabelBuilder == value) {
+      return;
+    }
+    _edgeLabelBuilder = value;
     markNeedsPaint();
   }
 
