@@ -1023,6 +1023,8 @@ class RenderCustomLayoutBox extends RenderBox
   void paint(PaintingContext context, Offset offset) {
     if (_children.isEmpty && _edgeLabels.isEmpty) return;
 
+    algorithm.renderer?.setHasEdgeLabelBuilder(_edgeLabelBuilder != null);
+
     if (enableAnimation) {
       final t = _nodeAnimationController.value;
       animatedPositions.clear();
@@ -1317,6 +1319,8 @@ class RenderCustomLayoutBox extends RenderBox
   }
 
   void _layoutEdgeLabels(BoxConstraints constraints) {
+    algorithm.renderer?.setHasEdgeLabelBuilder(_edgeLabelBuilder != null);
+
     if (_edgeLabelBuilder == null) {
       return;
     }
@@ -1350,27 +1354,35 @@ class RenderCustomLayoutBox extends RenderBox
 
   Offset _edgeLabelOffsetFor(Edge edge, RenderBox child,
       {Map<Node, Offset>? positions}) {
-    Offset sourcePosition = positions?[edge.source] ?? edge.source.position;
-    Offset destinationPosition =
-        positions?[edge.destination] ?? edge.destination.position;
+    final renderer = algorithm.renderer;
+    Offset? position = renderer?.getLabelPosition(edge);
 
-    final sourceCenter = Offset(
-      sourcePosition.dx + edge.source.width * 0.5,
-      sourcePosition.dy + edge.source.height * 0.5,
-    );
-    final destinationCenter = Offset(
-      destinationPosition.dx + edge.destination.width * 0.5,
-      destinationPosition.dy + edge.destination.height * 0.5,
-    );
+    if (position == null) {
+      Offset sourcePosition = positions?[edge.source] ?? edge.source.position;
+      Offset destinationPosition =
+          positions?[edge.destination] ?? edge.destination.position;
 
-    final t = edge.labelPosition;
-    final center = Offset(
-      sourceCenter.dx + (destinationCenter.dx - sourceCenter.dx) * t,
-      sourceCenter.dy + (destinationCenter.dy - sourceCenter.dy) * t,
-    ) +
-        edge.labelOffset;
+      final sourceCenter = Offset(
+        sourcePosition.dx + edge.source.width * 0.5,
+        sourcePosition.dy + edge.source.height * 0.5,
+      );
+      final destinationCenter = Offset(
+        destinationPosition.dx + edge.destination.width * 0.5,
+        destinationPosition.dy + edge.destination.height * 0.5,
+      );
 
-    return center -
+      final t = edge.labelPosition;
+      position = Offset(
+        sourceCenter.dx + (destinationCenter.dx - sourceCenter.dx) * t,
+        sourceCenter.dy + (destinationCenter.dy - sourceCenter.dy) * t,
+      );
+    }
+
+    position ??= Offset.zero;
+
+    final adjustedCenter = position + edge.labelOffset;
+
+    return adjustedCenter -
         Offset(child.size.width * 0.5, child.size.height * 0.5);
   }
 

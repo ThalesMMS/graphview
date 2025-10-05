@@ -25,48 +25,17 @@ class ArrowEdgeRenderer extends EdgeRenderer {
 
   @override
   void renderEdge(Canvas canvas, Edge edge, Paint paint) {
-    var source = edge.source;
-    var destination = edge.destination;
-
-    var sourceOffset = getNodePosition(source);
-    var destinationOffset = getNodePosition(destination);
-
-    var startX = sourceOffset.dx + source.width * 0.5;
-    var startY = sourceOffset.dy + source.height * 0.5;
-    var stopX = destinationOffset.dx + destination.width * 0.5;
-    var stopY = destinationOffset.dy + destination.height * 0.5;
-
-    var clippedLine = clipLineEnd(
-      startX,
-      startY,
-      stopX,
-      stopY,
-      destinationOffset.dx,
-      destinationOffset.dy,
-      destination.width,
-      destination.height,
-    );
-
+    final geometry = _buildLineGeometry(edge);
     final currentPaint = edge.paint ?? paint;
-    final startPoint = Offset(clippedLine[0], clippedLine[1]);
-    late final Offset endPoint;
+    final lineType = _getLineType(edge.destination);
 
-    if (noArrow) {
-      // Draw line without arrow, respecting line type
-      endPoint = Offset(clippedLine[2], clippedLine[3]);
-      drawStyledLine(
-        canvas,
-        startPoint,
-        endPoint,
-        currentPaint,
-        lineType: _getLineType(destination),
-      );
-    } else {
+    Offset endPoint = geometry.end;
+
+    if (!noArrow && geometry.triangleStart != null && geometry.triangleTip != null) {
       var trianglePaint = Paint()
         ..color = paint.color
         ..style = PaintingStyle.fill;
 
-      // Draw line with arrow
       Paint? edgeTrianglePaint;
       if (edge.paint != null) {
         edgeTrianglePaint = Paint()
@@ -74,27 +43,25 @@ class ArrowEdgeRenderer extends EdgeRenderer {
           ..style = PaintingStyle.fill;
       }
 
-      var triangleCentroid = drawTriangle(
+      endPoint = drawTriangle(
         canvas,
         edgeTrianglePaint ?? trianglePaint,
-        clippedLine[0],
-        clippedLine[1],
-        clippedLine[2],
-        clippedLine[3],
+        geometry.triangleStart!.dx,
+        geometry.triangleStart!.dy,
+        geometry.triangleTip!.dx,
+        geometry.triangleTip!.dy,
       );
-
-      // Draw the line with the appropriate style
-      drawStyledLine(
-        canvas,
-        startPoint,
-        triangleCentroid,
-        currentPaint,
-        lineType: _getLineType(destination),
-      );
-      endPoint = triangleCentroid;
     }
 
-    paintLabelOnLine(canvas, edge, startPoint, endPoint);
+    drawStyledLine(
+      canvas,
+      geometry.start,
+      endPoint,
+      currentPaint,
+      lineType: lineType,
+    );
+
+    paintLabelOnLine(canvas, edge, geometry.start, endPoint);
   }
 
   /// Helper to get line type from node data if available
@@ -115,33 +82,110 @@ class ArrowEdgeRenderer extends EdgeRenderer {
     double arrowTipX,
     double arrowTipY,
   ) {
-    // Calculate direction from line start to arrow tip, then flip 180° to point backwards from tip
-    var lineDirection =
-        (atan2(arrowTipY - lineStartY, arrowTipX - lineStartX) + pi);
+    final geometry = _computeTriangleGeometry(
+      lineStartX,
+      lineStartY,
+      arrowTipX,
+      arrowTipY,
+    );
 
-    // Calculate the two base points of the arrowhead triangle
-    var leftWingX =
-        (arrowTipX + ARROW_LENGTH * cos((lineDirection - ARROW_DEGREES)));
-    var leftWingY =
-        (arrowTipY + ARROW_LENGTH * sin((lineDirection - ARROW_DEGREES)));
-    var rightWingX =
-        (arrowTipX + ARROW_LENGTH * cos((lineDirection + ARROW_DEGREES)));
-    var rightWingY =
-        (arrowTipY + ARROW_LENGTH * sin((lineDirection + ARROW_DEGREES)));
-
-    // Draw the triangle: tip -> left wing -> right wing -> back to tip
     trianglePath.moveTo(arrowTipX, arrowTipY); // Arrow tip
-    trianglePath.lineTo(leftWingX, leftWingY); // Left wing
-    trianglePath.lineTo(rightWingX, rightWingY); // Right wing
+    trianglePath.lineTo(geometry.leftWing.dx, geometry.leftWing.dy); // Left wing
+    trianglePath.lineTo(geometry.rightWing.dx, geometry.rightWing.dy); // Right wing
     trianglePath.close(); // Back to tip
     canvas.drawPath(trianglePath, paint);
 
-    // Calculate center point of the triangle
-    var triangleCenterX = (arrowTipX + leftWingX + rightWingX) / 3;
-    var triangleCenterY = (arrowTipY + leftWingY + rightWingY) / 3;
-
     trianglePath.reset();
-    return Offset(triangleCenterX, triangleCenterY);
+    return geometry.centroid;
+  }
+
+  _TriangleGeometry _computeTriangleGeometry(
+    double lineStartX,
+    double lineStartY,
+    double arrowTipX,
+    double arrowTipY,
+  ) {
+    final lineDirection =
+        (atan2(arrowTipY - lineStartY, arrowTipX - lineStartX) + pi);
+
+    final leftWing = Offset(
+      arrowTipX + ARROW_LENGTH * cos((lineDirection - ARROW_DEGREES)),
+      arrowTipY + ARROW_LENGTH * sin((lineDirection - ARROW_DEGREES)),
+    );
+    final rightWing = Offset(
+      arrowTipX + ARROW_LENGTH * cos((lineDirection + ARROW_DEGREES)),
+      arrowTipY + ARROW_LENGTH * sin((lineDirection + ARROW_DEGREES)),
+    );
+
+    final centroid = Offset(
+      (arrowTipX + leftWing.dx + rightWing.dx) / 3,
+      (arrowTipY + leftWing.dy + rightWing.dy) / 3,
+    );
+
+    return _TriangleGeometry(
+      leftWing: leftWing,
+      rightWing: rightWing,
+      centroid: centroid,
+    );
+  }
+
+  _LineGeometry _buildLineGeometry(Edge edge) {
+    final source = edge.source;
+    final destination = edge.destination;
+
+    final sourceOffset = getNodePosition(source);
+    final destinationOffset = getNodePosition(destination);
+
+    final startX = sourceOffset.dx + source.width * 0.5;
+    final startY = sourceOffset.dy + source.height * 0.5;
+    final stopX = destinationOffset.dx + destination.width * 0.5;
+    final stopY = destinationOffset.dy + destination.height * 0.5;
+
+    final clippedLine = clipLineEnd(
+      startX,
+      startY,
+      stopX,
+      stopY,
+      destinationOffset.dx,
+      destinationOffset.dy,
+      destination.width,
+      destination.height,
+    );
+
+    final startPoint = Offset(clippedLine[0], clippedLine[1]);
+
+    if (noArrow) {
+      return _LineGeometry(
+        start: startPoint,
+        end: Offset(clippedLine[2], clippedLine[3]),
+      );
+    }
+
+    final triangleStart = Offset(clippedLine[0], clippedLine[1]);
+    final triangleTip = Offset(clippedLine[2], clippedLine[3]);
+    final centroid = _computeTriangleGeometry(
+      triangleStart.dx,
+      triangleStart.dy,
+      triangleTip.dx,
+      triangleTip.dy,
+    ).centroid;
+
+    return _LineGeometry(
+      start: startPoint,
+      end: centroid,
+      triangleStart: triangleStart,
+      triangleTip: triangleTip,
+    );
+  }
+
+  @override
+  Offset? getLabelPosition(Edge edge) {
+    final geometry = _buildLineGeometry(edge);
+    return resolveLabelPosition(
+      edge,
+      start: geometry.start,
+      end: geometry.end,
+    );
   }
 
   List<double> clipLineEnd(
@@ -249,4 +293,30 @@ class ArrowEdgeRenderer extends EdgeRenderer {
 
     return resultLine;
   }
+}
+
+class _TriangleGeometry {
+  final Offset leftWing;
+  final Offset rightWing;
+  final Offset centroid;
+
+  const _TriangleGeometry({
+    required this.leftWing,
+    required this.rightWing,
+    required this.centroid,
+  });
+}
+
+class _LineGeometry {
+  final Offset start;
+  final Offset end;
+  final Offset? triangleStart;
+  final Offset? triangleTip;
+
+  const _LineGeometry({
+    required this.start,
+    required this.end,
+    this.triangleStart,
+    this.triangleTip,
+  });
 }

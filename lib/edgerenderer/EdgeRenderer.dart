@@ -2,6 +2,7 @@ part of graphview;
 
 abstract class EdgeRenderer {
   Map<Node, Offset>? _animatedPositions;
+  bool _hasEdgeLabelBuilder = false;
 
   static const TextStyle _defaultLabelStyle = TextStyle(
     color: Colors.black,
@@ -11,64 +12,91 @@ abstract class EdgeRenderer {
   void setAnimatedPositions(Map<Node, Offset> positions) =>
       _animatedPositions = positions;
 
+  void setHasEdgeLabelBuilder(bool value) =>
+      _hasEdgeLabelBuilder = value;
+
   Offset getNodePosition(Node node) =>
       _animatedPositions?[node] ?? node.position;
 
   void renderEdge(Canvas canvas, Edge edge, Paint paint);
 
   void paintLabelOnLine(Canvas canvas, Edge edge, Offset start, Offset end) {
-    final label = edge.label;
-    if (label == null || label.isEmpty) return;
-
-    final t = edge.labelPosition;
-    final position = Offset(
-      start.dx + (end.dx - start.dx) * t,
-      start.dy + (end.dy - start.dy) * t,
+    final position = resolveLabelPosition(
+      edge,
+      start: start,
+      end: end,
     );
+    if (position == null) return;
 
-    _paintLabel(canvas, edge, position);
+    if (!_hasEdgeLabelBuilder) {
+      _paintLabel(canvas, edge, position);
+    }
   }
 
   void paintLabelOnPath(Canvas canvas, Edge edge, Path path) {
-    final label = edge.label;
-    if (label == null || label.isEmpty) return;
-
-    final metrics = path.computeMetrics().toList();
-    if (metrics.isEmpty) return;
-
-    final totalLength = metrics.fold<double>(
-      0.0,
-      (sum, metric) => sum + metric.length,
-    );
-    if (totalLength == 0.0) {
-      final fallbackTangent = metrics.first.getTangentForOffset(0);
-      if (fallbackTangent == null) return;
-      _paintLabel(canvas, edge, fallbackTangent.position);
-      return;
-    }
-
-    final target = totalLength * edge.labelPosition;
-    var traversed = 0.0;
-    Offset? position;
-
-    for (final metric in metrics) {
-      final nextTraversed = traversed + metric.length;
-      if (target <= nextTraversed) {
-        final localOffset = (target - traversed).clamp(0.0, metric.length);
-        final tangent = metric.getTangentForOffset(localOffset.toDouble());
-        if (tangent != null) {
-          position = tangent.position;
-        }
-        break;
-      }
-      traversed = nextTraversed;
-    }
-
-    position ??=
-        metrics.last.getTangentForOffset(metrics.last.length)?.position;
+    final position = resolveLabelPosition(edge, path: path);
     if (position == null) return;
 
-    _paintLabel(canvas, edge, position);
+    if (!_hasEdgeLabelBuilder) {
+      _paintLabel(canvas, edge, position);
+    }
+  }
+
+  Offset? resolveLabelPosition(
+    Edge edge, {
+    Offset? start,
+    Offset? end,
+    Path? path,
+  }) {
+    if (!_hasEdgeLabelBuilder) {
+      final label = edge.label;
+      if (label == null || label.isEmpty) return null;
+    }
+
+    if (path != null) {
+      final metrics = path.computeMetrics().toList();
+      if (metrics.isEmpty) return null;
+
+      final totalLength = metrics.fold<double>(
+        0.0,
+        (sum, metric) => sum + metric.length,
+      );
+      if (totalLength == 0.0) {
+        final fallbackTangent = metrics.first.getTangentForOffset(0);
+        return fallbackTangent?.position;
+      }
+
+      final target = totalLength * edge.labelPosition;
+      var traversed = 0.0;
+      Offset? position;
+
+      for (final metric in metrics) {
+        final nextTraversed = traversed + metric.length;
+        if (target <= nextTraversed) {
+          final localOffset = (target - traversed).clamp(0.0, metric.length);
+          final tangent = metric.getTangentForOffset(localOffset.toDouble());
+          if (tangent != null) {
+            position = tangent.position;
+          }
+          break;
+        }
+        traversed = nextTraversed;
+      }
+
+      position ??=
+          metrics.last.getTangentForOffset(metrics.last.length)?.position;
+      return position;
+    }
+
+    if (start != null && end != null) {
+      final t = edge.labelPosition;
+      return Offset(
+        start.dx + (end.dx - start.dx) * t,
+        start.dy + (end.dy - start.dy) * t,
+      );
+    }
+
+    return null;
   }
 
   void _paintLabel(Canvas canvas, Edge edge, Offset position) {
@@ -100,6 +128,8 @@ abstract class EdgeRenderer {
       nodePosition.dy + node.height * 0.5,
     );
   }
+
+  Offset? getLabelPosition(Edge edge) => null;
 
   /// Draws a line between two points respecting the node's line type
   void drawStyledLine(
