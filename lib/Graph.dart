@@ -291,21 +291,26 @@ class LoopEdgeStyle {
   final LoopOrientation orientation;
 
   /// Controls how large the arc is outside of the node. Larger values place
-  /// the loop's centre further away, producing a wider circular path.
+  /// the loop's centre further away from the perimeter, producing a wider
+  /// circular path.
   final double radius;
 
-  /// Interpolates between a compact arc (0.0) and an almost complete circle
-  /// (1.0). Values outside the range are clamped.
+  /// Interpolates between a compact arc (0.0) and a broader sweep (1.0). The
+  /// resulting arc length stays below a full circle so the arrow can sit
+  /// cleanly on the node border. Values outside the range are clamped.
   final double tension;
 
   /// Applies a translation to the computed loop, allowing subtle alignment
   /// tweaks so the loop can match custom node artwork.
+  ///
+  /// The renderer approximates node shapes as ellipses that match the widget's
+  /// bounding box when positioning the loop and arrow.
   final Offset offset;
 
   const LoopEdgeStyle({
     this.orientation = LoopOrientation.topLeft,
-    this.radius = 28.0,
-    this.tension = 0.8,
+    this.radius = 24.0,
+    this.tension = 0.65,
     this.offset = Offset.zero,
   });
 
@@ -313,9 +318,9 @@ class LoopEdgeStyle {
   /// JFLAP for finite automata visualisations.
   const LoopEdgeStyle.jflap()
       : orientation = LoopOrientation.topLeft,
-        radius = 28.0,
-        tension = 0.85,
-        offset = const Offset(-10, -8);
+        radius = 26.0,
+        tension = 0.7,
+        offset = Offset.zero;
 }
 
 class Edge {

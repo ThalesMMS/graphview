@@ -161,23 +161,27 @@ abstract class EdgeRenderer {
     final normal = Offset(orientationVector.dx / vectorLength, orientationVector.dy / vectorLength);
 
     final loopRadius = max(8.0, loopStyle.radius);
-    final halfWidth = node.width * 0.5;
-    final halfHeight = node.height * 0.5;
-    final nodeRadius = sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
-    final anchorDistance = nodeRadius + loopRadius;
+    final ellipseRadius =
+        _distanceToEllipseEdge(node.width * 0.5, node.height * 0.5, normal);
+    final exitPoint = nodeCenter +
+        Offset(
+          normal.dx * ellipseRadius,
+          normal.dy * ellipseRadius,
+        );
+
     final loopCenter = nodeCenter +
         Offset(
-          normal.dx * anchorDistance,
-          normal.dy * anchorDistance,
+          normal.dx * (ellipseRadius + loopRadius),
+          normal.dy * (ellipseRadius + loopRadius),
         ) +
         loopStyle.offset;
 
     final endAngle = atan2(
-      nodeCenter.dy - loopCenter.dy,
-      nodeCenter.dx - loopCenter.dx,
+      exitPoint.dy - loopCenter.dy,
+      exitPoint.dx - loopCenter.dx,
     );
-    const minSweep = pi * 1.45;
-    const maxSweep = pi * 1.9;
+    const minSweep = pi * 1.1;
+    const maxSweep = pi * 1.55;
     final tension = loopStyle.tension.clamp(0.0, 1.0);
     final sweep = minSweep + (maxSweep - minSweep) * tension;
     final signedSweep = sweep * _loopSweepDirection(loopStyle.orientation);
@@ -187,10 +191,7 @@ abstract class EdgeRenderer {
       loopCenter.dx + cos(startAngle) * loopRadius,
       loopCenter.dy + sin(startAngle) * loopRadius,
     );
-    final end = Offset(
-      loopCenter.dx + cos(endAngle) * loopRadius,
-      loopCenter.dy + sin(endAngle) * loopRadius,
-    );
+    final end = exitPoint;
 
     final arcRect = Rect.fromCircle(center: loopCenter, radius: loopRadius);
     final path = Path()
@@ -246,6 +247,29 @@ abstract class EdgeRenderer {
       case LoopOrientation.bottomRight:
         return -1.0;
     }
+  }
+
+  double _distanceToEllipseEdge(double halfWidth, double halfHeight, Offset dir) {
+    if (halfWidth <= 0 || halfHeight <= 0) {
+      return 0;
+    }
+
+    final dx = dir.dx;
+    final dy = dir.dy;
+    if (dx == 0 && dy == 0) {
+      return min(halfWidth, halfHeight);
+    }
+
+    final denom = sqrt(
+      (dx * dx) / (halfWidth * halfWidth) +
+          (dy * dy) / (halfHeight * halfHeight),
+    );
+
+    if (denom == 0) {
+      return min(halfWidth, halfHeight);
+    }
+
+    return 1.0 / denom;
   }
 }
 
