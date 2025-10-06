@@ -285,17 +285,37 @@ enum LoopOrientation {
 }
 
 class LoopEdgeStyle {
+  /// Determines where the loop bulges out from the node. For instance,
+  /// [LoopOrientation.topLeft] produces a loop that sits on the top-left side
+  /// of the node, matching the default styling of tools like JFLAP.
   final LoopOrientation orientation;
+
+  /// Controls how large the arc is outside of the node. Larger values place
+  /// the loop's centre further away, producing a wider circular path.
   final double radius;
+
+  /// Interpolates between a compact arc (0.0) and an almost complete circle
+  /// (1.0). Values outside the range are clamped.
   final double tension;
+
+  /// Applies a translation to the computed loop, allowing subtle alignment
+  /// tweaks so the loop can match custom node artwork.
   final Offset offset;
 
   const LoopEdgeStyle({
-    this.orientation = LoopOrientation.topRight,
-    this.radius = 32.0,
-    this.tension = 0.6,
+    this.orientation = LoopOrientation.topLeft,
+    this.radius = 28.0,
+    this.tension = 0.8,
     this.offset = Offset.zero,
   });
+
+  /// Convenience style that mirrors the default loop proportions used in
+  /// JFLAP for finite automata visualisations.
+  const LoopEdgeStyle.jflap()
+      : orientation = LoopOrientation.topLeft,
+        radius = 28.0,
+        tension = 0.85,
+        offset = const Offset(-10, -8);
 }
 
 class Edge {

@@ -156,57 +156,46 @@ abstract class EdgeRenderer {
       nodePosition.dy + node.height * 0.5,
     );
 
-    late Offset start;
-    late Offset end;
-    switch (loopStyle.orientation) {
-      case LoopOrientation.topRight:
-        start = Offset(nodePosition.dx + node.width, nodeCenter.dy);
-        end = Offset(nodeCenter.dx, nodePosition.dy);
-        break;
-      case LoopOrientation.topLeft:
-        start = Offset(nodePosition.dx, nodeCenter.dy);
-        end = Offset(nodeCenter.dx, nodePosition.dy);
-        break;
-      case LoopOrientation.bottomLeft:
-        start = Offset(nodePosition.dx, nodeCenter.dy);
-        end = Offset(nodeCenter.dx, nodePosition.dy + node.height);
-        break;
-      case LoopOrientation.bottomRight:
-        start = Offset(nodePosition.dx + node.width, nodeCenter.dy);
-        end = Offset(nodeCenter.dx, nodePosition.dy + node.height);
-        break;
-    }
+    final orientationVector = _loopOrientationVector(loopStyle.orientation);
+    final vectorLength = orientationVector.distance == 0 ? 1.0 : orientationVector.distance;
+    final normal = Offset(orientationVector.dx / vectorLength, orientationVector.dy / vectorLength);
 
-    final vector = _loopOrientationVector(loopStyle.orientation);
-    final vectorLength = vector.distance == 0 ? 1.0 : vector.distance;
-    final normalizedVector = Offset(vector.dx / vectorLength, vector.dy / vectorLength);
-
-    final baseRadius = max(0.0, loopStyle.radius);
+    final loopRadius = max(8.0, loopStyle.radius);
     final halfWidth = node.width * 0.5;
     final halfHeight = node.height * 0.5;
     final nodeRadius = sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
-    final anchorDistance = nodeRadius + baseRadius;
-    final anchor = nodeCenter +
+    final anchorDistance = nodeRadius + loopRadius;
+    final loopCenter = nodeCenter +
         Offset(
-          normalizedVector.dx * anchorDistance,
-          normalizedVector.dy * anchorDistance,
+          normal.dx * anchorDistance,
+          normal.dy * anchorDistance,
         ) +
         loopStyle.offset;
 
+    final endAngle = atan2(
+      nodeCenter.dy - loopCenter.dy,
+      nodeCenter.dx - loopCenter.dx,
+    );
+    const minSweep = pi * 1.45;
+    const maxSweep = pi * 1.9;
     final tension = loopStyle.tension.clamp(0.0, 1.0);
-    final controlPoint1 = Offset.lerp(start, anchor, tension) ?? start;
-    final controlPoint2 = Offset.lerp(end, anchor, tension) ?? end;
+    final sweep = minSweep + (maxSweep - minSweep) * tension;
+    final signedSweep = sweep * _loopSweepDirection(loopStyle.orientation);
+    final startAngle = endAngle - signedSweep;
 
+    final start = Offset(
+      loopCenter.dx + cos(startAngle) * loopRadius,
+      loopCenter.dy + sin(startAngle) * loopRadius,
+    );
+    final end = Offset(
+      loopCenter.dx + cos(endAngle) * loopRadius,
+      loopCenter.dy + sin(endAngle) * loopRadius,
+    );
+
+    final arcRect = Rect.fromCircle(center: loopCenter, radius: loopRadius);
     final path = Path()
       ..moveTo(start.dx, start.dy)
-      ..cubicTo(
-        controlPoint1.dx,
-        controlPoint1.dy,
-        controlPoint2.dx,
-        controlPoint2.dy,
-        end.dx,
-        end.dy,
-      );
+      ..arcTo(arcRect, startAngle, signedSweep, false);
 
     final metrics = path.computeMetrics().toList();
     if (metrics.isEmpty) {
@@ -243,6 +232,19 @@ abstract class EdgeRenderer {
         return const Offset(-1, 1);
       case LoopOrientation.bottomRight:
         return const Offset(1, 1);
+    }
+  }
+
+  double _loopSweepDirection(LoopOrientation orientation) {
+    switch (orientation) {
+      case LoopOrientation.topRight:
+        return 1.0;
+      case LoopOrientation.topLeft:
+        return -1.0;
+      case LoopOrientation.bottomLeft:
+        return 1.0;
+      case LoopOrientation.bottomRight:
+        return -1.0;
     }
   }
 }
