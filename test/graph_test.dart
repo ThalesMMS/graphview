@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/widgets.dart';
 import 'package:graphview/GraphView.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -103,11 +105,13 @@ void main() {
       expect(metrics.first.length, greaterThan(0));
 
       final loopPadding = 16.0;
-      final horizontalRadius = node.width * 0.5 + loopPadding;
-      final verticalRadius = node.height * 0.5 + loopPadding;
+      final halfWidth = node.width * 0.5;
+      final halfHeight = node.height * 0.5;
+      final horizontalRadius = halfWidth + loopPadding;
+      final verticalRadius = halfHeight * 0.6 + loopPadding * 0.75;
 
       final ellipseCenter = Offset(
-        node.position.dx + node.width * 0.5,
+        node.position.dx + halfWidth,
         node.position.dy - verticalRadius,
       );
 
@@ -127,15 +131,25 @@ void main() {
       final metric = metrics.first;
       final tangent = metric.getTangentForOffset(metric.length);
       expect(tangent, isNotNull);
-      expect(tangent!.vector.dx, closeTo(0, 1e-3));
-      expect(tangent.vector.dy, greaterThan(0));
+
+      const startAngle = pi / 2;
+      const sweepAngle = -7 * pi / 4;
+      final endAngle = startAngle + sweepAngle;
 
       final expectedEnd = Offset(
-        ellipseCenter.dx - horizontalRadius,
-        ellipseCenter.dy,
+        ellipseCenter.dx + horizontalRadius * cos(endAngle),
+        ellipseCenter.dy + verticalRadius * sin(endAngle),
       );
       expect(result.arrowTip.dx, closeTo(expectedEnd.dx, 0.01));
       expect(result.arrowTip.dy, closeTo(expectedEnd.dy, 0.01));
+
+      final tangentVector = tangent!.vector;
+      expect(tangentVector.dx, greaterThan(0));
+      expect(tangentVector.dy, greaterThan(0));
+
+      final expectedTangentAngle = atan2(verticalRadius, horizontalRadius);
+      final tangentAngle = atan2(tangentVector.dy, tangentVector.dx);
+      expect(tangentAngle, closeTo(expectedTangentAngle, 1e-3));
     });
 
     test('SugiyamaAlgorithm handles single node self loop', () {
