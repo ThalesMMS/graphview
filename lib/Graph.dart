@@ -328,12 +328,14 @@ class LoopEdgeStyle {
 
   /// Convenience style that mirrors the default loop proportions used in
   /// JFLAP for finite automata visualisations while still allowing optional
-  /// angular tweaks to the tangents.
+  /// angular tweaks to the tangents or mirroring the loop to a different
+  /// quadrant via [orientation].
   const LoopEdgeStyle.jflap({
+    LoopOrientation orientation = LoopOrientation.topLeft,
     double entryAngleOffset = 0.0,
     double exitAngleOffset = 0.0,
   })
-      : orientation = LoopOrientation.topLeft,
+      : orientation = orientation,
         radius = 32.0,
         tension = 0.55,
         offset = Offset.zero,

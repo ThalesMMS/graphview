@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:graphview/GraphView.dart';
 
@@ -42,7 +44,11 @@ class _LoopStylesGraphViewPageState extends State<LoopStylesGraphViewPage> {
     _graph.addEdge(
       state,
       state,
-      loopStyle: const LoopEdgeStyle.jflap(entryAngleOffset: 0.35),
+      loopStyle: const LoopEdgeStyle.jflap(
+        orientation: LoopOrientation.topRight,
+        entryAngleOffset: -math.pi / 4,
+        exitAngleOffset: math.pi / 4,
+      ),
       paint: Paint()
         ..color = const Color(0xFF454E66)
         ..strokeWidth = 2.4,
