@@ -88,20 +88,46 @@ void main() {
     });
 
     test('ArrowEdgeRenderer builds self-loop path', () {
+      const loopPadding = 16.0;
       final renderer = ArrowEdgeRenderer();
       final node = Node.Id('self')
         ..size = const Size(40, 40)
         ..position = const Offset(100, 100);
 
       final edge = Edge(node, node);
-      final result = renderer.buildSelfLoopPath(edge);
+      final result = renderer.buildSelfLoopPath(
+        edge,
+        loopPadding: loopPadding,
+        arrowLength: 0,
+      );
 
       expect(result, isNotNull);
 
-      final metrics = result!.path.computeMetrics().toList();
+      final path = result!.path;
+      final metrics = path.computeMetrics().toList();
       expect(metrics, isNotEmpty);
       expect(metrics.first.length, greaterThan(0));
-      expect(result.arrowTip, isNot(equals(const Offset(0, 0))));
+
+      final nodeCenter = Offset(
+        node.position.dx + node.width * 0.5,
+        node.position.dy + node.height * 0.5,
+      );
+      final horizontalRadius = node.width * 0.5 + loopPadding;
+      final verticalRadius = node.height * 0.5 + loopPadding;
+      final expectedArcStart = Offset(nodeCenter.dx + horizontalRadius, nodeCenter.dy);
+      final expectedArcTop = Offset(nodeCenter.dx, nodeCenter.dy - verticalRadius);
+
+      final bounds = path.getBounds();
+      expect(bounds.right, closeTo(expectedArcStart.dx, 1e-6));
+      expect(bounds.top, closeTo(expectedArcTop.dy, 1e-6));
+      expect(bounds.left, closeTo(expectedArcTop.dx, 1e-6));
+      expect(bounds.bottom, closeTo(node.position.dy + node.height * 0.5, 1e-6));
+
+      final tangent = metrics.first.getTangentForOffset(metrics.first.length);
+      expect(tangent, isNotNull);
+      expect(tangent!.vector.dx, closeTo(0, 1e-6));
+      expect(tangent.vector.dy, greaterThan(0));
+      expect(result.arrowTip, equals(Offset(nodeCenter.dx, node.position.dy)));
     });
 
     test('SugiyamaAlgorithm handles single node self loop', () {

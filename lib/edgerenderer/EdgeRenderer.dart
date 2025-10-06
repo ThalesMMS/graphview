@@ -161,29 +161,26 @@ abstract class EdgeRenderer {
       nodePosition.dy,
     );
 
-    final horizontalOffset = max(loopPadding + node.width * 0.4, 24.0);
-    final verticalOffset = max(loopPadding + node.height * 0.8, 32.0);
-
-    final controlPoint1 = Offset(
-      start.dx + horizontalOffset,
-      start.dy - verticalOffset,
+    final nodeCenter = Offset(
+      nodePosition.dx + node.width * 0.5,
+      nodePosition.dy + node.height * 0.5,
     );
 
-    final controlPoint2 = Offset(
-      end.dx + horizontalOffset * 0.6,
-      end.dy - verticalOffset,
+    final horizontalRadius = node.width * 0.5 + loopPadding;
+    final verticalRadius = node.height * 0.5 + loopPadding;
+
+    final arcStart = Offset(nodeCenter.dx + horizontalRadius, nodeCenter.dy);
+    final arcRect = Rect.fromCenter(
+      center: nodeCenter,
+      width: horizontalRadius * 2,
+      height: verticalRadius * 2,
     );
 
     final path = Path()
       ..moveTo(start.dx, start.dy)
-      ..cubicTo(
-        controlPoint1.dx,
-        controlPoint1.dy,
-        controlPoint2.dx,
-        controlPoint2.dy,
-        end.dx,
-        end.dy,
-      );
+      ..lineTo(arcStart.dx, arcStart.dy)
+      ..addArc(arcRect, 0.0, -pi / 2)
+      ..lineTo(end.dx, end.dy);
 
     final metrics = path.computeMetrics().toList();
     if (metrics.isEmpty) {
