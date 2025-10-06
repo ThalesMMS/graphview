@@ -34,6 +34,7 @@ class ArrowEdgeRenderer extends EdgeRenderer {
     if (source == destination) {
       final loopResult = buildSelfLoopPath(
         edge,
+        style: edge.loopStyle,
         arrowLength: noArrow ? 0.0 : ARROW_LENGTH,
       );
 

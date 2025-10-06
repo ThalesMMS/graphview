@@ -12,6 +12,7 @@ import 'force_directed_graphview.dart';
 import 'graph_cluster_animated.dart';
 import 'layer_eiglesperger_graphview.dart';
 import 'layer_graphview_json.dart';
+import 'loop_styles_graphview.dart';
 import 'tree_graphview.dart';
 
 void main() {
@@ -167,6 +168,13 @@ class Home extends StatelessWidget {
               Icons.layers,
               Colors.teal,
                   () => LayeredEiglspergerGraphViewPage(),
+            ),
+            _buildButton(
+              'Loop Styles',
+              'Self-loop styling options',
+              Icons.loop,
+              Colors.amber,
+              () => const LoopStylesGraphViewPage(),
             ),
           ]),
         ],

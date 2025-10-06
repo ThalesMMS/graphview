@@ -141,7 +141,7 @@ abstract class EdgeRenderer {
   /// data that renderers can use to draw arrows or style the segment.
   LoopRenderResult? buildSelfLoopPath(
     Edge edge, {
-    double loopPadding = 16.0,
+    LoopEdgeStyle? style,
     double arrowLength = 12.0,
   }) {
     if (edge.source != edge.destination) {
@@ -150,29 +150,52 @@ abstract class EdgeRenderer {
 
     final node = edge.source;
     final nodePosition = getNodePosition(node);
-
-    final start = Offset(
-      nodePosition.dx + node.width,
+    final loopStyle = style ?? edge.loopStyle ?? const LoopEdgeStyle();
+    final nodeCenter = Offset(
+      nodePosition.dx + node.width * 0.5,
       nodePosition.dy + node.height * 0.5,
     );
 
-    final end = Offset(
-      nodePosition.dx + node.width * 0.5,
-      nodePosition.dy,
-    );
+    late Offset start;
+    late Offset end;
+    switch (loopStyle.orientation) {
+      case LoopOrientation.topRight:
+        start = Offset(nodePosition.dx + node.width, nodeCenter.dy);
+        end = Offset(nodeCenter.dx, nodePosition.dy);
+        break;
+      case LoopOrientation.topLeft:
+        start = Offset(nodePosition.dx, nodeCenter.dy);
+        end = Offset(nodeCenter.dx, nodePosition.dy);
+        break;
+      case LoopOrientation.bottomLeft:
+        start = Offset(nodePosition.dx, nodeCenter.dy);
+        end = Offset(nodeCenter.dx, nodePosition.dy + node.height);
+        break;
+      case LoopOrientation.bottomRight:
+        start = Offset(nodePosition.dx + node.width, nodeCenter.dy);
+        end = Offset(nodeCenter.dx, nodePosition.dy + node.height);
+        break;
+    }
 
-    final horizontalOffset = max(loopPadding + node.width * 0.4, 24.0);
-    final verticalOffset = max(loopPadding + node.height * 0.8, 32.0);
+    final vector = _loopOrientationVector(loopStyle.orientation);
+    final vectorLength = vector.distance == 0 ? 1.0 : vector.distance;
+    final normalizedVector = Offset(vector.dx / vectorLength, vector.dy / vectorLength);
 
-    final controlPoint1 = Offset(
-      start.dx + horizontalOffset,
-      start.dy - verticalOffset,
-    );
+    final baseRadius = max(0.0, loopStyle.radius);
+    final halfWidth = node.width * 0.5;
+    final halfHeight = node.height * 0.5;
+    final nodeRadius = sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
+    final anchorDistance = nodeRadius + baseRadius;
+    final anchor = nodeCenter +
+        Offset(
+          normalizedVector.dx * anchorDistance,
+          normalizedVector.dy * anchorDistance,
+        ) +
+        loopStyle.offset;
 
-    final controlPoint2 = Offset(
-      end.dx + horizontalOffset * 0.6,
-      end.dy - verticalOffset,
-    );
+    final tension = loopStyle.tension.clamp(0.0, 1.0);
+    final controlPoint1 = Offset.lerp(start, anchor, tension) ?? start;
+    final controlPoint2 = Offset.lerp(end, anchor, tension) ?? end;
 
     final path = Path()
       ..moveTo(start.dx, start.dy)
@@ -208,6 +231,19 @@ abstract class EdgeRenderer {
       arrowBaseTangent?.position ?? end,
       arrowTipTangent?.position ?? end,
     );
+  }
+
+  Offset _loopOrientationVector(LoopOrientation orientation) {
+    switch (orientation) {
+      case LoopOrientation.topRight:
+        return const Offset(1, -1);
+      case LoopOrientation.topLeft:
+        return const Offset(-1, -1);
+      case LoopOrientation.bottomLeft:
+        return const Offset(-1, 1);
+      case LoopOrientation.bottomRight:
+        return const Offset(1, 1);
+    }
   }
 }
 

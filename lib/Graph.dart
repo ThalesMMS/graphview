@@ -42,8 +42,9 @@ class Graph {
 
   void removeNodes(List<Node> nodes) => nodes.forEach((it) => removeNode(it));
 
-  Edge addEdge(Node source, Node destination, {Paint? paint}) {
-    final edge = Edge(source, destination, paint: paint);
+  Edge addEdge(Node source, Node destination,
+      {Paint? paint, LoopEdgeStyle? loopStyle}) {
+    final edge = Edge(source, destination, paint: paint, loopStyle: loopStyle);
     addEdgeS(edge);
     return edge;
   }
@@ -276,6 +277,27 @@ class Node {
   }
 }
 
+enum LoopOrientation {
+  topRight,
+  topLeft,
+  bottomLeft,
+  bottomRight,
+}
+
+class LoopEdgeStyle {
+  final LoopOrientation orientation;
+  final double radius;
+  final double tension;
+  final Offset offset;
+
+  const LoopEdgeStyle({
+    this.orientation = LoopOrientation.topRight,
+    this.radius = 32.0,
+    this.tension = 0.6,
+    this.offset = Offset.zero,
+  });
+}
+
 class Edge {
   Node source;
   Node destination;
@@ -283,7 +305,10 @@ class Edge {
   Key? key;
   Paint? paint;
 
-  Edge(this.source, this.destination, {this.key, this.paint});
+  LoopEdgeStyle? loopStyle;
+
+  Edge(this.source, this.destination,
+      {this.key, this.paint, this.loopStyle});
 
   @override
   bool operator ==(Object? other) =>
