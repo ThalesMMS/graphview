@@ -156,8 +156,19 @@ abstract class EdgeRenderer {
       nodePosition.dy + node.height * 0.5,
     );
 
-    final entryDir = _loopEntryDirection(loopStyle.orientation);
-    final exitDir = _loopExitDirection(loopStyle.orientation);
+    final baseEntryDir = _loopEntryDirection(loopStyle.orientation);
+    final baseExitDir = _loopExitDirection(loopStyle.orientation);
+
+    var entryDir = _rotate(baseEntryDir, loopStyle.entryAngleOffset);
+    if (entryDir == Offset.zero) {
+      entryDir = baseEntryDir;
+    }
+
+    var exitDir = _rotate(baseExitDir, loopStyle.exitAngleOffset);
+    if (exitDir == Offset.zero) {
+      exitDir = baseExitDir;
+    }
+
     final entryNormal = _normalize(entryDir);
     final exitNormal = _normalize(exitDir);
 
@@ -308,6 +319,19 @@ abstract class EdgeRenderer {
       return Offset.zero;
     }
     return Offset(value.dx / magnitude, value.dy / magnitude);
+  }
+
+  Offset _rotate(Offset value, double angle) {
+    if (angle == 0.0 || value == Offset.zero) {
+      return value;
+    }
+
+    final sinAngle = sin(angle);
+    final cosAngle = cos(angle);
+    return Offset(
+      value.dx * cosAngle - value.dy * sinAngle,
+      value.dx * sinAngle + value.dy * cosAngle,
+    );
   }
 }
 

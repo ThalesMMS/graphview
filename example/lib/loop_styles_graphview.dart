@@ -42,7 +42,7 @@ class _LoopStylesGraphViewPageState extends State<LoopStylesGraphViewPage> {
     _graph.addEdge(
       state,
       state,
-      loopStyle: const LoopEdgeStyle.jflap(),
+      loopStyle: const LoopEdgeStyle.jflap(entryAngleOffset: 0.35),
       paint: Paint()
         ..color = const Color(0xFF454E66)
         ..strokeWidth = 2.4,

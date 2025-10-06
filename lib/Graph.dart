@@ -306,20 +306,39 @@ class LoopEdgeStyle {
   /// bounding box when positioning the loop and arrow.
   final Offset offset;
 
+  /// Rotates the loop's entry tangent in radians relative to the orientation's
+  /// default anchor. Positive values rotate counter-clockwise, nudging the
+  /// starting point around the node perimeter. This is useful to avoid
+  /// collisions with incoming arrows or to align the loop with decorative
+  /// elements.
+  final double entryAngleOffset;
+
+  /// Rotates the loop's exit tangent in radians relative to the orientation's
+  /// default anchor. Positive values rotate counter-clockwise.
+  final double exitAngleOffset;
+
   const LoopEdgeStyle({
     this.orientation = LoopOrientation.topLeft,
     this.radius = 28.0,
     this.tension = 0.6,
     this.offset = Offset.zero,
+    this.entryAngleOffset = 0.0,
+    this.exitAngleOffset = 0.0,
   });
 
   /// Convenience style that mirrors the default loop proportions used in
-  /// JFLAP for finite automata visualisations.
-  const LoopEdgeStyle.jflap()
+  /// JFLAP for finite automata visualisations while still allowing optional
+  /// angular tweaks to the tangents.
+  const LoopEdgeStyle.jflap({
+    double entryAngleOffset = 0.0,
+    double exitAngleOffset = 0.0,
+  })
       : orientation = LoopOrientation.topLeft,
         radius = 32.0,
         tension = 0.55,
-        offset = Offset.zero;
+        offset = Offset.zero,
+        entryAngleOffset = entryAngleOffset,
+        exitAngleOffset = exitAngleOffset;
 }
 
 class Edge {
