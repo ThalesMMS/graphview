@@ -151,27 +151,27 @@ abstract class EdgeRenderer {
     final node = edge.source;
     final nodePosition = getNodePosition(node);
 
-    final start = Offset(
-      nodePosition.dx + node.width,
-      nodePosition.dy + node.height * 0.5,
-    );
-
     final horizontalRadius = node.width * 0.5 + loopPadding;
     final verticalRadius = node.height * 0.5 + loopPadding;
 
     final ellipseCenter = Offset(
-      start.dx - horizontalRadius,
-      start.dy,
+      nodePosition.dx + node.width * 0.5,
+      nodePosition.dy - verticalRadius,
     );
-
-    const startAngle = 0.0;
-    const sweepAngle = -pi / 2;
-    final endAngle = startAngle + sweepAngle;
 
     final ellipseRect = Rect.fromCenter(
       center: ellipseCenter,
       width: horizontalRadius * 2,
       height: verticalRadius * 2,
+    );
+
+    const startAngle = pi / 2;
+    const sweepAngle = -3 * pi / 2;
+    final endAngle = startAngle + sweepAngle;
+
+    final start = Offset(
+      ellipseCenter.dx + horizontalRadius * cos(startAngle),
+      ellipseCenter.dy + verticalRadius * sin(startAngle),
     );
 
     final end = Offset(

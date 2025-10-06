@@ -106,21 +106,16 @@ void main() {
       final horizontalRadius = node.width * 0.5 + loopPadding;
       final verticalRadius = node.height * 0.5 + loopPadding;
 
-      final start = Offset(
-        node.position.dx + node.width,
-        node.position.dy + node.height * 0.5,
-      );
-
       final ellipseCenter = Offset(
-        start.dx - horizontalRadius,
-        start.dy,
+        node.position.dx + node.width * 0.5,
+        node.position.dy - verticalRadius,
       );
 
       final expectedBounds = Rect.fromLTRB(
-        ellipseCenter.dx,
+        ellipseCenter.dx - horizontalRadius,
         ellipseCenter.dy - verticalRadius,
-        start.dx,
-        start.dy,
+        ellipseCenter.dx + horizontalRadius,
+        node.position.dy,
       );
 
       final bounds = result.path.getBounds();
@@ -132,12 +127,12 @@ void main() {
       final metric = metrics.first;
       final tangent = metric.getTangentForOffset(metric.length);
       expect(tangent, isNotNull);
-      expect(tangent!.vector.dx, lessThan(0));
-      expect(tangent.vector.dy, closeTo(0, 1e-3));
+      expect(tangent!.vector.dx, closeTo(0, 1e-3));
+      expect(tangent.vector.dy, greaterThan(0));
 
       final expectedEnd = Offset(
-        ellipseCenter.dx,
-        ellipseCenter.dy - verticalRadius,
+        ellipseCenter.dx - horizontalRadius,
+        ellipseCenter.dy,
       );
       expect(result.arrowTip.dx, closeTo(expectedEnd.dx, 0.01));
       expect(result.arrowTip.dy, closeTo(expectedEnd.dy, 0.01));
