@@ -156,47 +156,64 @@ abstract class EdgeRenderer {
       nodePosition.dy + node.height * 0.5,
     );
 
-    final orientationVector = _loopOrientationVector(loopStyle.orientation);
-    final vectorLength = orientationVector.distance == 0 ? 1.0 : orientationVector.distance;
-    final normal = Offset(orientationVector.dx / vectorLength, orientationVector.dy / vectorLength);
+    final entryDir = _loopEntryDirection(loopStyle.orientation);
+    final exitDir = _loopExitDirection(loopStyle.orientation);
+    final entryNormal = _normalize(entryDir);
+    final exitNormal = _normalize(exitDir);
 
-    final loopRadius = max(8.0, loopStyle.radius);
-    final ellipseRadius =
-        _distanceToEllipseEdge(node.width * 0.5, node.height * 0.5, normal);
-    final exitPoint = nodeCenter +
+    final entryRadius =
+        _distanceToEllipseEdge(node.width * 0.5, node.height * 0.5, entryNormal);
+    final exitRadius =
+        _distanceToEllipseEdge(node.width * 0.5, node.height * 0.5, exitNormal);
+
+    final baseEntryPoint = nodeCenter +
+        Offset(entryNormal.dx * entryRadius, entryNormal.dy * entryRadius);
+    final baseExitPoint = nodeCenter +
+        Offset(exitNormal.dx * exitRadius, exitNormal.dy * exitRadius);
+
+    var outward = _normalize(entryNormal + exitNormal);
+    if (outward == Offset.zero) {
+      outward = _normalize(_loopOrientationVector(loopStyle.orientation));
+    }
+    if (outward == Offset.zero) {
+      outward = const Offset(0, -1);
+    }
+
+    final loopRadius = max(10.0, loopStyle.radius);
+    final tension = loopStyle.tension.clamp(0.0, 1.0);
+
+    final entryPull = loopRadius * (0.55 + (1.0 - tension) * 0.25);
+    final exitPull = loopRadius * (0.55 + (1.0 - tension) * 0.25);
+    final outwardPull = loopRadius * (1.05 + tension * 0.75);
+
+    final controlPoint1 = baseEntryPoint +
         Offset(
-          normal.dx * ellipseRadius,
-          normal.dy * ellipseRadius,
+          entryNormal.dx * entryPull + outward.dx * outwardPull,
+          entryNormal.dy * entryPull + outward.dy * outwardPull,
+        );
+    final controlPoint2 = baseExitPoint +
+        Offset(
+          exitNormal.dx * exitPull + outward.dx * outwardPull,
+          exitNormal.dy * exitPull + outward.dy * outwardPull,
         );
 
-    final loopCenter = nodeCenter +
-        Offset(
-          normal.dx * (ellipseRadius + loopRadius),
-          normal.dy * (ellipseRadius + loopRadius),
-        ) +
-        loopStyle.offset;
+    final offset = loopStyle.offset;
+    final start = baseEntryPoint + offset;
+    final end = baseExitPoint + offset;
 
-    final endAngle = atan2(
-      exitPoint.dy - loopCenter.dy,
-      exitPoint.dx - loopCenter.dx,
-    );
-    const minSweep = pi * 1.1;
-    const maxSweep = pi * 1.55;
-    final tension = loopStyle.tension.clamp(0.0, 1.0);
-    final sweep = minSweep + (maxSweep - minSweep) * tension;
-    final signedSweep = sweep * _loopSweepDirection(loopStyle.orientation);
-    final startAngle = endAngle - signedSweep;
+    final control1 = controlPoint1 + offset;
+    final control2 = controlPoint2 + offset;
 
-    final start = Offset(
-      loopCenter.dx + cos(startAngle) * loopRadius,
-      loopCenter.dy + sin(startAngle) * loopRadius,
-    );
-    final end = exitPoint;
-
-    final arcRect = Rect.fromCircle(center: loopCenter, radius: loopRadius);
     final path = Path()
       ..moveTo(start.dx, start.dy)
-      ..arcTo(arcRect, startAngle, signedSweep, false);
+      ..cubicTo(
+        control1.dx,
+        control1.dy,
+        control2.dx,
+        control2.dy,
+        end.dx,
+        end.dy,
+      );
 
     final metrics = path.computeMetrics().toList();
     if (metrics.isEmpty) {
@@ -236,19 +253,6 @@ abstract class EdgeRenderer {
     }
   }
 
-  double _loopSweepDirection(LoopOrientation orientation) {
-    switch (orientation) {
-      case LoopOrientation.topRight:
-        return 1.0;
-      case LoopOrientation.topLeft:
-        return -1.0;
-      case LoopOrientation.bottomLeft:
-        return 1.0;
-      case LoopOrientation.bottomRight:
-        return -1.0;
-    }
-  }
-
   double _distanceToEllipseEdge(double halfWidth, double halfHeight, Offset dir) {
     if (halfWidth <= 0 || halfHeight <= 0) {
       return 0;
@@ -270,6 +274,40 @@ abstract class EdgeRenderer {
     }
 
     return 1.0 / denom;
+  }
+
+  Offset _loopEntryDirection(LoopOrientation orientation) {
+    switch (orientation) {
+      case LoopOrientation.topRight:
+        return const Offset(1, 0);
+      case LoopOrientation.topLeft:
+        return const Offset(-1, 0);
+      case LoopOrientation.bottomLeft:
+        return const Offset(-1, 0);
+      case LoopOrientation.bottomRight:
+        return const Offset(1, 0);
+    }
+  }
+
+  Offset _loopExitDirection(LoopOrientation orientation) {
+    switch (orientation) {
+      case LoopOrientation.topRight:
+        return const Offset(0, -1);
+      case LoopOrientation.topLeft:
+        return const Offset(0, -1);
+      case LoopOrientation.bottomLeft:
+        return const Offset(0, 1);
+      case LoopOrientation.bottomRight:
+        return const Offset(0, 1);
+    }
+  }
+
+  Offset _normalize(Offset value) {
+    final magnitude = value.distance;
+    if (magnitude == 0) {
+      return Offset.zero;
+    }
+    return Offset(value.dx / magnitude, value.dy / magnitude);
   }
 }
 
