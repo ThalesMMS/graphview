@@ -107,8 +107,8 @@ void main() {
       final loopPadding = 16.0;
       final halfWidth = node.width * 0.5;
       final halfHeight = node.height * 0.5;
-      final horizontalRadius = halfWidth + loopPadding;
-      final verticalRadius = halfHeight * 0.6 + loopPadding * 0.75;
+      final horizontalRadius = halfWidth + loopPadding * 0.85;
+      final verticalRadius = halfHeight * 0.45 + loopPadding * 0.75;
 
       final ellipseCenter = Offset(
         node.position.dx + halfWidth,
@@ -133,7 +133,7 @@ void main() {
       expect(tangent, isNotNull);
 
       const startAngle = pi / 2;
-      const sweepAngle = -7 * pi / 4;
+      const sweepAngle = -5 * pi / 4;
       final endAngle = startAngle + sweepAngle;
 
       final expectedEnd = Offset(
@@ -144,12 +144,19 @@ void main() {
       expect(result.arrowTip.dy, closeTo(expectedEnd.dy, 0.01));
 
       final tangentVector = tangent!.vector;
-      expect(tangentVector.dx, greaterThan(0));
-      expect(tangentVector.dy, greaterThan(0));
+      Offset expectedVector = Offset(
+        -horizontalRadius * sin(endAngle),
+        verticalRadius * cos(endAngle),
+      );
 
-      final expectedTangentAngle = atan2(verticalRadius, horizontalRadius);
-      final tangentAngle = atan2(tangentVector.dy, tangentVector.dx);
-      expect(tangentAngle, closeTo(expectedTangentAngle, 1e-3));
+      if (sweepAngle < 0) {
+        expectedVector = expectedVector.scale(-1, -1);
+      }
+
+      final expectedUnit = expectedVector / expectedVector.distance;
+
+      expect(tangentVector.dx, closeTo(expectedUnit.dx, 1e-3));
+      expect(tangentVector.dy, closeTo(expectedUnit.dy, 1e-3));
     });
 
     test('SugiyamaAlgorithm handles single node self loop', () {
