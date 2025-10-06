@@ -94,14 +94,53 @@ void main() {
         ..position = const Offset(100, 100);
 
       final edge = Edge(node, node);
-      final result = renderer.buildSelfLoopPath(edge);
+      final result = renderer.buildSelfLoopPath(edge, arrowLength: 0);
 
       expect(result, isNotNull);
 
       final metrics = result!.path.computeMetrics().toList();
       expect(metrics, isNotEmpty);
       expect(metrics.first.length, greaterThan(0));
-      expect(result.arrowTip, isNot(equals(const Offset(0, 0))));
+
+      final loopPadding = 16.0;
+      final horizontalRadius = node.width * 0.5 + loopPadding;
+      final verticalRadius = node.height * 0.5 + loopPadding;
+
+      final start = Offset(
+        node.position.dx + node.width,
+        node.position.dy + node.height * 0.5,
+      );
+
+      final ellipseCenter = Offset(
+        start.dx - horizontalRadius,
+        start.dy,
+      );
+
+      final expectedBounds = Rect.fromLTRB(
+        ellipseCenter.dx,
+        ellipseCenter.dy - verticalRadius,
+        start.dx,
+        start.dy,
+      );
+
+      final bounds = result.path.getBounds();
+      expect(bounds.left, closeTo(expectedBounds.left, 0.01));
+      expect(bounds.top, closeTo(expectedBounds.top, 0.01));
+      expect(bounds.right, closeTo(expectedBounds.right, 0.01));
+      expect(bounds.bottom, closeTo(expectedBounds.bottom, 0.01));
+
+      final metric = metrics.first;
+      final tangent = metric.getTangentForOffset(metric.length);
+      expect(tangent, isNotNull);
+      expect(tangent!.vector.dx, lessThan(0));
+      expect(tangent.vector.dy, closeTo(0, 1e-3));
+
+      final expectedEnd = Offset(
+        ellipseCenter.dx,
+        ellipseCenter.dy - verticalRadius,
+      );
+      expect(result.arrowTip.dx, closeTo(expectedEnd.dx, 0.01));
+      expect(result.arrowTip.dy, closeTo(expectedEnd.dy, 0.01));
     });
 
     test('SugiyamaAlgorithm handles single node self loop', () {

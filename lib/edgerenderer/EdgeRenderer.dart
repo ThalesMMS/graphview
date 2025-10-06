@@ -156,33 +156,36 @@ abstract class EdgeRenderer {
       nodePosition.dy + node.height * 0.5,
     );
 
+    final horizontalRadius = node.width * 0.5 + loopPadding;
+    final verticalRadius = node.height * 0.5 + loopPadding;
+
+    final ellipseCenter = Offset(
+      start.dx - horizontalRadius,
+      start.dy,
+    );
+
+    const startAngle = 0.0;
+    const sweepAngle = -pi / 2;
+    final endAngle = startAngle + sweepAngle;
+
+    final ellipseRect = Rect.fromCenter(
+      center: ellipseCenter,
+      width: horizontalRadius * 2,
+      height: verticalRadius * 2,
+    );
+
     final end = Offset(
-      nodePosition.dx + node.width * 0.5,
-      nodePosition.dy,
-    );
-
-    final horizontalOffset = max(loopPadding + node.width * 0.4, 24.0);
-    final verticalOffset = max(loopPadding + node.height * 0.8, 32.0);
-
-    final controlPoint1 = Offset(
-      start.dx + horizontalOffset,
-      start.dy - verticalOffset,
-    );
-
-    final controlPoint2 = Offset(
-      end.dx + horizontalOffset * 0.6,
-      end.dy - verticalOffset,
+      ellipseCenter.dx + horizontalRadius * cos(endAngle),
+      ellipseCenter.dy + verticalRadius * sin(endAngle),
     );
 
     final path = Path()
       ..moveTo(start.dx, start.dy)
-      ..cubicTo(
-        controlPoint1.dx,
-        controlPoint1.dy,
-        controlPoint2.dx,
-        controlPoint2.dy,
-        end.dx,
-        end.dy,
+      ..arcTo(
+        ellipseRect,
+        startAngle,
+        sweepAngle,
+        false,
       );
 
     final metrics = path.computeMetrics().toList();
