@@ -108,10 +108,10 @@ class RenderCustomLayoutBox extends RenderBox
   @override
   void detach() {
     _nodeAnimationController.removeListener(_onAnimationTick);
-    super.detach();
     for (final child in _children.values) {
       child.detach();
     }
+    super.detach();
   }
 
   void forceRecalculation() {
