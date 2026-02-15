@@ -86,6 +86,9 @@ class BarnesHutQuadtree {
   ///
   /// Returns true if the node was successfully inserted, false if the node
   /// is outside the bounds.
+  ///
+  /// Throws [StateError] if insertion into child quadrants fails despite the
+  /// node being within this node's bounds (an internal consistency violation).
   bool insert(Node graphNode) {
     // Ignore nodes outside the bounds
     if (!bounds.contains(graphNode.position)) {
@@ -118,18 +121,24 @@ class BarnesHutQuadtree {
       // Reinsert the old node
       if (oldNode != null) {
         if (!_insertIntoChild(oldNode)) {
-          return false;
+          throw StateError(
+            'Failed to reinsert existing node at ${oldNode.position} while subdividing bounds $bounds',
+          );
         }
       }
 
       // Insert the new node
       if (!_insertIntoChild(graphNode)) {
-        return false;
+        throw StateError(
+          'Failed to insert node at ${graphNode.position} after subdividing bounds $bounds',
+        );
       }
     } else {
       // This is an internal node, insert into appropriate child
       if (!_insertIntoChild(graphNode)) {
-        return false;
+        throw StateError(
+          'Failed to insert node at ${graphNode.position} into child quadrant for bounds $bounds',
+        );
       }
     }
 
@@ -167,12 +176,7 @@ class BarnesHutQuadtree {
     if (northWest!.insert(graphNode)) return true;
     if (northEast!.insert(graphNode)) return true;
     if (southWest!.insert(graphNode)) return true;
-    final inserted = southEast!.insert(graphNode);
-    assert(
-      inserted,
-      'Node at ${graphNode.position} could not be inserted into any quadrant within $bounds',
-    );
-    return inserted;
+    return southEast!.insert(graphNode);
   }
 
   /// Updates the center of mass and total mass incrementally for this node.

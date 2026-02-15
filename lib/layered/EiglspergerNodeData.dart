@@ -1,14 +1,17 @@
 part of graphview;
 
-class EiglspergerNodeData {
+class EiglspergerNodeData implements LayeredNodeData {
+  @override
   bool isDummy = false;
   bool isPVertex = false;
   bool isQVertex = false;
   Segment? segment;
+  @override
   int layer = -1;
   int position = -1;
   int rank = -1;
   double measure = -1;
+  @override
   Set<Node> reversed = {};
   List<Node> predecessorNodes = [];
   List<Node> successorNodes = [];
@@ -17,6 +20,7 @@ class EiglspergerNodeData {
   EiglspergerNodeData(this.lineType);
 
   bool get isSegmentVertex => isPVertex || isQVertex;
+  @override
   bool get isReversed => reversed.isNotEmpty;
 
   @override

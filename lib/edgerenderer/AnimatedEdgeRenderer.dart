@@ -45,6 +45,8 @@ class AnimatedEdgeRenderer extends ArrowEdgeRenderer {
 
   @override
   void renderEdge(Canvas canvas, Edge edge, Paint paint) {
+    // Keep this guard so we do not draw animated particles for edges rendered
+    // by a different custom per-edge renderer.
     if (edge.renderer != null && edge.renderer != this) {
       edge.renderer!.renderEdge(canvas, edge, paint);
       return;
@@ -59,35 +61,13 @@ class AnimatedEdgeRenderer extends ArrowEdgeRenderer {
 
   /// Renders animated particles flowing along the edge
   void _renderAnimatedParticles(Canvas canvas, Edge edge, Paint paint) {
-    var source = edge.source;
-    var destination = edge.destination;
-
     final particlePaint = Paint()
-      ..color = animationConfig.particleColor ?? edge.paint?.color ?? paint.color
+      ..color =
+          animationConfig.particleColor ?? edge.paint?.color ?? paint.color
       ..style = PaintingStyle.fill;
 
-    Path edgePath;
-
-    if (source == destination) {
-      // Handle self-loop
-      final loopResult = buildSelfLoopPath(edge, arrowLength: noArrow ? 0.0 : ARROW_LENGTH);
-      if (loopResult == null) return;
-      edgePath = loopResult.path;
-    } else {
-      // Handle regular edge - create path from source to destination
-      var sourceOffset = getNodePosition(source);
-      var destinationOffset = getNodePosition(destination);
-
-      var startX = sourceOffset.dx + source.width * 0.5;
-      var startY = sourceOffset.dy + source.height * 0.5;
-      var stopX = destinationOffset.dx + destination.width * 0.5;
-      var stopY = destinationOffset.dy + destination.height * 0.5;
-
-      // Create a simple path for the edge
-      edgePath = Path()
-        ..moveTo(startX, startY)
-        ..lineTo(stopX, stopY);
-    }
+    final edgePath = _buildParticlePath(edge);
+    if (edgePath == null) return;
 
     // Compute metrics to get positions along the path
     final metrics = edgePath.computeMetrics().toList();
@@ -102,7 +82,9 @@ class AnimatedEdgeRenderer extends ArrowEdgeRenderer {
       final basePosition = i / animationConfig.particleCount;
 
       // Add animation offset (with speed multiplier)
-      final animatedPosition = (basePosition + animationValue * animationConfig.animationSpeed) % 1.0;
+      final animatedPosition =
+          (basePosition + animationValue * animationConfig.animationSpeed) %
+              1.0;
 
       // Convert to actual path offset
       final offset = animatedPosition * pathLength;
@@ -118,5 +100,93 @@ class AnimatedEdgeRenderer extends ArrowEdgeRenderer {
         );
       }
     }
+  }
+
+  Path? _buildParticlePath(Edge edge) {
+    final source = edge.source;
+    final destination = edge.destination;
+
+    if (source == destination) {
+      final loopResult = buildSelfLoopPath(
+        edge,
+        arrowLength: noArrow ? 0.0 : ARROW_LENGTH,
+      );
+      return loopResult?.path;
+    }
+
+    double startX;
+    double startY;
+    double stopX;
+    double stopY;
+
+    if (_shouldUseAdaptiveAnchors()) {
+      final edgeIndex = _calculateEdgeIndex(edge);
+      final sourceCenter = _getNodeCenter(source);
+      final destCenter = _getNodeCenter(destination);
+      final sourcePoint =
+          calculateSourceConnectionPoint(edge, destCenter, edgeIndex);
+      final destPoint =
+          calculateDestinationConnectionPoint(edge, sourceCenter, edgeIndex);
+      startX = sourcePoint.dx;
+      startY = sourcePoint.dy;
+      stopX = destPoint.dx;
+      stopY = destPoint.dy;
+    } else {
+      final sourceOffset = getNodePosition(source);
+      final destinationOffset = getNodePosition(destination);
+      startX = sourceOffset.dx + source.width * 0.5;
+      startY = sourceOffset.dy + source.height * 0.5;
+      stopX = destinationOffset.dx + destination.width * 0.5;
+      stopY = destinationOffset.dy + destination.height * 0.5;
+    }
+
+    final clippedLine = _shouldUseAdaptiveAnchors()
+        ? [startX, startY, stopX, stopY]
+        : clipLineEnd(
+            startX,
+            startY,
+            stopX,
+            stopY,
+            getNodePosition(destination).dx,
+            getNodePosition(destination).dy,
+            destination.width,
+            destination.height,
+          );
+
+    final particleEnd = noArrow
+        ? Offset(clippedLine[2], clippedLine[3])
+        : _calculateArrowTriangleCentroid(
+            clippedLine[0],
+            clippedLine[1],
+            clippedLine[2],
+            clippedLine[3],
+          );
+
+    return Path()
+      ..moveTo(clippedLine[0], clippedLine[1])
+      ..lineTo(particleEnd.dx, particleEnd.dy);
+  }
+
+  Offset _calculateArrowTriangleCentroid(
+    double lineStartX,
+    double lineStartY,
+    double arrowTipX,
+    double arrowTipY,
+  ) {
+    final lineDirection =
+        (atan2(arrowTipY - lineStartY, arrowTipX - lineStartX) + pi);
+    final leftWingX =
+        (arrowTipX + ARROW_LENGTH * cos((lineDirection - ARROW_DEGREES)));
+    final leftWingY =
+        (arrowTipY + ARROW_LENGTH * sin((lineDirection - ARROW_DEGREES)));
+    final rightWingX =
+        (arrowTipX + ARROW_LENGTH * cos((lineDirection + ARROW_DEGREES)));
+    final rightWingY =
+        (arrowTipY + ARROW_LENGTH * sin((lineDirection + ARROW_DEGREES)));
+
+    return Offset(
+      (arrowTipX + leftWingX + rightWingX) / 3,
+      (arrowTipY + leftWingY + rightWingY) / 3,
+    );
   }
 }

@@ -7,59 +7,100 @@ import 'package:graphview/GraphView.dart';
 void main() {
   group('EdgeRepulsionSolver Integration with AdaptiveEdgeRenderer', () {
     test('Repulsion is applied when enabled in config', () {
-      // Create a graph with two parallel edges that should repel each other
+      // Create two crossing edges so repulsion has a clear geometric effect.
       final graph = Graph();
       final node1 = Node.Id(1);
       final node2 = Node.Id(2);
+      final node3 = Node.Id(3);
+      final node4 = Node.Id(4);
 
       // Set node positions and sizes
       node1.position = const Offset(0, 0);
       node1.size = const Size(100, 50);
 
-      node2.position = const Offset(200, 0);
+      node2.position = const Offset(200, 200);
       node2.size = const Size(100, 50);
+
+      node3.position = const Offset(0, 200);
+      node3.size = const Size(100, 50);
+
+      node4.position = const Offset(200, 0);
+      node4.size = const Size(100, 50);
 
       graph.addNode(node1);
       graph.addNode(node2);
+      graph.addNode(node3);
+      graph.addNode(node4);
 
-      // Add two edges between the same nodes (parallel edges)
+      // Add two crossing edges
       final edge1 = graph.addEdge(node1, node2);
-      final edge2 = graph.addEdge(node1, node2);
+      final edge2 = graph.addEdge(node3, node4);
 
-      // Create renderer with repulsion enabled
-      final config = EdgeRoutingConfig(
+      // Use direct routing so repulsion converts straight lines into curved paths.
+      final enabledConfig = EdgeRoutingConfig(
         anchorMode: AnchorMode.cardinal,
-        routingMode: RoutingMode.bezier,
+        routingMode: RoutingMode.direct,
         enableRepulsion: true,
-        repulsionStrength: 0.5,
-        minEdgeDistance: 10.0,
+        repulsionStrength: 1.0,
+        minEdgeDistance: 20.0,
         maxRepulsionIterations: 10,
       );
-      final renderer = AdaptiveEdgeRenderer(config: config);
+      final disabledConfig = EdgeRoutingConfig(
+        anchorMode: AnchorMode.cardinal,
+        routingMode: RoutingMode.direct,
+        enableRepulsion: false,
+        minEdgeDistance: 20.0,
+      );
+      final enabledRenderer = AdaptiveEdgeRenderer(config: enabledConfig);
+      final disabledRenderer = AdaptiveEdgeRenderer(config: disabledConfig);
 
-      // Set graph on renderer (simulates render cycle start)
-      renderer.setGraph(graph);
+      double pathLength(Path path) {
+        var total = 0.0;
+        for (final metric in path.computeMetrics()) {
+          total += metric.length;
+        }
+        return total;
+      }
 
-      // Create a mock canvas for rendering
+      // Run one render cycle so the enabled renderer calculates and caches offsets.
+      enabledRenderer.setGraph(graph);
       final recorder = PictureRecorder();
       final canvas = Canvas(recorder);
       final paint = Paint()
         ..color = Colors.black
         ..strokeWidth = 2.0;
-
-      // Render the first edge (should trigger repulsion calculation for all edges)
-      renderer.renderEdge(canvas, edge1, paint);
-
-      // Render the second edge (should use cached repulsion results)
-      renderer.renderEdge(canvas, edge2, paint);
+      enabledRenderer.renderEdge(canvas, edge1, paint);
+      enabledRenderer.renderEdge(canvas, edge2, paint);
       recorder.endRecording();
 
-      // Verify that repulsion was calculated by checking the internal state
-      // Since we can't access private fields directly, we verify behavior through rendering
+      disabledRenderer.setGraph(graph);
 
-      // The test passes if no exceptions are thrown during rendering
-      // In a real scenario, we would verify that the edges are visually separated
-      expect(true, isTrue);
+      final sourceCenter = enabledRenderer.getNodeCenter(edge1.source);
+      final destCenter = enabledRenderer.getNodeCenter(edge1.destination);
+      final sourcePoint =
+          enabledRenderer.calculateSourceConnectionPoint(edge1, destCenter, 0);
+      final destPoint = enabledRenderer.calculateDestinationConnectionPoint(
+          edge1, sourceCenter, 0);
+
+      final originalPath =
+          enabledRenderer.routeEdgePath(sourcePoint, destPoint, edge1);
+      final enabledPath = enabledRenderer.applyEdgeRepulsion(
+        graph.edges.toList(),
+        edge1,
+        originalPath,
+      );
+      final disabledPath = disabledRenderer.applyEdgeRepulsion(
+        graph.edges.toList(),
+        edge1,
+        originalPath,
+      );
+
+      // Repulsion disabled: original path should be returned unchanged.
+      expect(identical(disabledPath, originalPath), isTrue);
+      // Repulsion enabled: path should be modified.
+      expect(identical(enabledPath, originalPath), isFalse);
+      // Modified path should be longer than the straight line due to curvature.
+      expect(pathLength(enabledPath), greaterThan(pathLength(originalPath)));
     });
 
     test('Repulsion is not applied when disabled in config', () {
@@ -147,7 +188,9 @@ void main() {
       expect(true, isTrue);
     });
 
-    test('applyEdgeRepulsion override returns modified path when repulsion enabled', () {
+    test(
+        'applyEdgeRepulsion override returns modified path when repulsion enabled',
+        () {
       final graph = Graph();
       final node1 = Node.Id(1);
       final node2 = Node.Id(2);
@@ -183,7 +226,8 @@ void main() {
       recorder.endRecording();
 
       // Call applyEdgeRepulsion (should use cached repulsion if any)
-      final modifiedPath = renderer.applyEdgeRepulsion([edge], edge, originalPath);
+      final modifiedPath =
+          renderer.applyEdgeRepulsion([edge], edge, originalPath);
 
       // Path should not be null
       expect(modifiedPath, isNotNull);

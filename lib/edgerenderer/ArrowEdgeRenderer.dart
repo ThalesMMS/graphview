@@ -583,8 +583,12 @@ class ArrowEdgeRenderer extends EdgeRenderer {
       return 0;
     }
 
-    parallelEdges.sort((a, b) => a.hashCode.compareTo(b.hashCode));
-    final index = parallelEdges.indexOf(edge);
+    // Keep graph insertion order for deterministic placement and locate by identity.
+    // Do not rely on Edge.hashCode/== because parallel edges may compare equal.
+    final index = parallelEdges.indexWhere((candidate) => identical(candidate, edge));
+    if (index == -1) {
+      return 0;
+    }
     final centerOffset = (parallelEdges.length - 1) / 2;
     return index - centerOffset.floor();
   }

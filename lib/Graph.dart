@@ -3,6 +3,7 @@ part of graphview;
 class Graph {
   final List<Node> _nodes = [];
   final Set<Node> _nodeSet = {};
+  final Map<Node, Node> _canonicalNodes = {};
   final List<Edge> _edges = [];
   List<GraphObserver> graphObserver = [];
 
@@ -26,6 +27,7 @@ class Graph {
   void addNode(Node node) {
     _nodes.add(node);
     _nodeSet.add(node);
+    _canonicalNodes.putIfAbsent(node, () => node);
     _cacheValid = false;
     _generation++;
     notifyGraphObserver();
@@ -42,6 +44,7 @@ class Graph {
 
     _nodes.remove(node);
     _nodeSet.remove(node);
+    _canonicalNodes.remove(node);
     _edges
         .removeWhere((edge) => edge.source == node || edge.destination == node);
     _cacheValid = false;
@@ -51,8 +54,22 @@ class Graph {
 
   void removeNodes(List<Node> nodes) => nodes.forEach((it) => removeNode(it));
 
-  Edge addEdge(Node source, Node destination, {Paint? paint, String? label, TextStyle? labelStyle, EdgeLabelPosition? labelPosition, bool? labelFollowsEdgeDirection, Widget? labelWidget, EdgeRenderer? renderer}) {
-    final edge = Edge(source, destination, paint: paint, label: label, labelStyle: labelStyle, labelPosition: labelPosition, labelFollowsEdgeDirection: labelFollowsEdgeDirection, labelWidget: labelWidget, renderer: renderer);
+  Edge addEdge(Node source, Node destination,
+      {Paint? paint,
+      String? label,
+      TextStyle? labelStyle,
+      EdgeLabelPosition? labelPosition,
+      bool? labelFollowsEdgeDirection,
+      Widget? labelWidget,
+      EdgeRenderer? renderer}) {
+    final edge = Edge(source, destination,
+        paint: paint,
+        label: label,
+        labelStyle: labelStyle,
+        labelPosition: labelPosition,
+        labelFollowsEdgeDirection: labelFollowsEdgeDirection,
+        labelWidget: labelWidget,
+        renderer: renderer);
     addEdgeS(edge);
     return edge;
   }
@@ -61,20 +78,23 @@ class Graph {
     var sourceSet = false;
     var destinationSet = false;
 
-    // Use Set lookup for O(1) existence check
-    if (_nodeSet.contains(edge.source)) {
-      edge.source = _nodes.firstWhere((node) => node == edge.source);
+    // Use canonical map for O(1) canonical instance lookup.
+    final canonicalSource = _canonicalNodes[edge.source];
+    if (canonicalSource != null) {
+      edge.source = canonicalSource;
       sourceSet = true;
     }
 
-    if (_nodeSet.contains(edge.destination)) {
-      edge.destination = _nodes.firstWhere((node) => node == edge.destination);
+    final canonicalDestination = _canonicalNodes[edge.destination];
+    if (canonicalDestination != null) {
+      edge.destination = canonicalDestination;
       destinationSet = true;
     }
 
     if (!sourceSet) {
       _nodes.add(edge.source);
       _nodeSet.add(edge.source);
+      _canonicalNodes.putIfAbsent(edge.source, () => edge.source);
       sourceSet = true;
       if (!destinationSet && edge.destination == edge.source) {
         destinationSet = true;
@@ -83,6 +103,7 @@ class Graph {
     if (!destinationSet) {
       _nodes.add(edge.destination);
       _nodeSet.add(edge.destination);
+      _canonicalNodes.putIfAbsent(edge.destination, () => edge.destination);
       destinationSet = true;
     }
 
@@ -174,7 +195,8 @@ class Graph {
     return _nodes[position];
   }
 
-  @Deprecated('Use Node.Id(id) constructor and getNodeUsingId(id) instead. See MIGRATION.md for details.')
+  @Deprecated(
+      'Use Node.Id(id) constructor and getNodeUsingId(id) instead. See MIGRATION.md for details.')
   Node getNodeAtUsingData(Widget data) =>
       _nodes.firstWhere((element) => element.data == data);
 
@@ -207,7 +229,6 @@ class Graph {
 
     return json.encode(jsonString);
   }
-
 }
 
 extension GraphExtension on Graph {
@@ -218,10 +239,10 @@ extension GraphExtension on Graph {
     var maxY = double.negativeInfinity;
 
     for (final node in nodes) {
-        minX = min(minX, node.x);
-        minY = min(minY, node.y);
-        maxX = max(maxX, node.x + node.width);
-        maxY = max(maxY, node.y + node.height);
+      minX = min(minX, node.x);
+      minY = min(minY, node.y);
+      maxX = max(maxX, node.x + node.width);
+      maxY = max(maxY, node.y + node.height);
     }
 
     return Rect.fromLTRB(minX, minY, maxX, maxY);
@@ -243,10 +264,12 @@ enum LineType {
 class Node {
   ValueKey? key;
 
-  @Deprecated('Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
+  @Deprecated(
+      'Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
   Widget? data;
 
-  @Deprecated('Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
+  @Deprecated(
+      'Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
   Node(this.data, {Key? key}) {
     this.key = ValueKey(key?.hashCode ?? data.hashCode);
   }
@@ -298,8 +321,10 @@ class Node {
 enum EdgeLabelPosition {
   /// Label at start of edge (20% along path)
   start,
+
   /// Label at middle of edge (50% along path)
   middle,
+
   /// Label at end of edge (80% along path)
   end,
 }
@@ -321,7 +346,15 @@ class Edge {
   // Custom renderer
   EdgeRenderer? renderer;
 
-  Edge(this.source, this.destination, {this.key, this.paint, this.label, this.labelStyle, this.labelPosition, this.labelFollowsEdgeDirection, this.labelWidget, this.renderer});
+  Edge(this.source, this.destination,
+      {this.key,
+      this.paint,
+      this.label,
+      this.labelStyle,
+      this.labelPosition,
+      this.labelFollowsEdgeDirection,
+      this.labelWidget,
+      this.renderer});
 
   @override
   bool operator ==(Object other) {
@@ -333,6 +366,9 @@ class Edge {
     }
 
     // If either edge has an explicit key, key identity defines equality.
+    // This means keyed-vs-unkeyed edges are not equal. To avoid surprising
+    // behavior in deduplication/contains checks, create edges consistently
+    // (either all keyed or all unkeyed) for a given graph.
     if (key != null || other.key != null) {
       return key == other.key;
     }

@@ -31,6 +31,7 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
 
     // Create nodes
     final nodes = List.generate(nodeCount, (i) => Node.Id(i + 1));
+    final addedEdges = <String>{};
 
     // Create edges - build a more connected graph for interesting layout
     // Each node connects to 2-4 other nodes randomly
@@ -39,10 +40,10 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
       for (var j = 0; j < connectionCount; j++) {
         final targetIndex = r.nextInt(nodeCount);
         if (targetIndex != i) {
-          try {
+          final edgeKey =
+              i < targetIndex ? '$i-$targetIndex' : '$targetIndex-$i';
+          if (addedEdges.add(edgeKey)) {
             graph.addEdge(nodes[i], nodes[targetIndex]);
-          } catch (e) {
-            // Edge might already exist, ignore
           }
         }
       }
@@ -80,10 +81,11 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
         actions: [
           Center(
             child: Padding(
-              padding: EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.only(right: 16),
               child: Text(
                 lastLayoutTime > 0 ? 'Layout: ${lastLayoutTime}ms' : '',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                style:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               ),
             ),
           ),
@@ -167,8 +169,9 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Nodes: ${nodeCount.toInt()}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      'Nodes: $nodeCount',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                     Slider(
                       value: nodeCount.toDouble(),
@@ -193,7 +196,8 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
                   children: [
                     Text(
                       'Iterations: ${iterations.toInt()}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                     Slider(
                       value: iterations,

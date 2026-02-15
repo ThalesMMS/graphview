@@ -32,8 +32,8 @@ void main() {
     final node4 = Node.Id(4);
     final node5 = Node.Id(5);
     final node6 = Node.Id(6);
-    final node8 = Node.Id(7);
-    final node7 = Node.Id(8);
+    final node8 = Node.Id(8);
+    final node7 = Node.Id(7);
     final node9 = Node.Id(9);
     final node10 = Node.Id(10);
     final node11 = Node.Id(11);

@@ -1,6 +1,7 @@
 part of graphview;
 
-class SugiyamaAlgorithm extends LayeredAlgorithmBase {
+class SugiyamaAlgorithm
+    extends LayeredAlgorithmBase<SugiyamaNodeData, SugiyamaEdgeData> {
   final Map<Node, SugiyamaNodeData> _nodeData = {};
   final Map<Edge, SugiyamaEdgeData> _edgeData = {};
   final SugiyamaConfiguration _configuration;
@@ -30,8 +31,8 @@ class SugiyamaAlgorithm extends LayeredAlgorithmBase {
   }
 
   @override
-  List<double> getBendPointsFromEdgeData(dynamic edgeData) {
-    return (edgeData as SugiyamaEdgeData).bendPoints;
+  List<double> getBendPointsFromEdgeData(SugiyamaEdgeData edgeData) {
+    return edgeData.bendPoints;
   }
 
   @override
@@ -68,7 +69,6 @@ class SugiyamaAlgorithm extends LayeredAlgorithmBase {
     graph.edges.forEach((edge) {
       edgeData[edge] = SugiyamaEdgeData();
     });
-
   }
 
   void layerAssignment() {
@@ -286,7 +286,7 @@ class SugiyamaAlgorithm extends LayeredAlgorithmBase {
 
         while (iterator.moveNext()) {
           final edge = iterator.current;
-          final dummy = Node.Id(dummyId.hashCode);
+          final dummy = Node.Id(dummyId);
           final dummyNodeData = SugiyamaNodeData(node.lineType);
           dummyNodeData.isDummy = true;
           dummyNodeData.layer = indexNextLayer;
@@ -1173,7 +1173,8 @@ class SugiyamaAlgorithm extends LayeredAlgorithmBase {
   }
 
   Offset getPosition(Node node, Offset offset) {
-    return OrientationUtils.getPosition(node, offset, configuration.orientation);
+    return OrientationUtils.getPosition(
+        node, offset, configuration.orientation);
   }
 
   @override
@@ -1190,8 +1191,7 @@ class SugiyamaAlgorithm extends LayeredAlgorithmBase {
   }
 
   @override
-  void setDimensions(double width, double height) {
-  }
+  void setDimensions(double width, double height) {}
 }
 
 class AccumulatorTree {

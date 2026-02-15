@@ -6,7 +6,7 @@ class GraphViewCustomPainter extends StatefulWidget {
   final Paint? paint;
   final NodeWidgetBuilder builder;
   final bool animate;
-  final stepMilis = 25;
+  final int stepMilis;
 
   GraphViewCustomPainter({
     Key? key,
@@ -14,6 +14,7 @@ class GraphViewCustomPainter extends StatefulWidget {
     required this.algorithm,
     this.paint,
     this.animate = true,
+    this.stepMilis = 25,
     required this.builder,
   }) : super(key: key);
 
@@ -22,7 +23,7 @@ class GraphViewCustomPainter extends StatefulWidget {
 }
 
 class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
-  late Timer timer;
+  Timer? timer;
   late Graph graph;
   late FruchtermanReingoldAlgorithm algorithm;
 
@@ -32,13 +33,17 @@ class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
 
     algorithm = widget.algorithm;
     algorithm.init(graph);
-    startTimer();
+    if (widget.animate) {
+      startTimer();
+    }
 
     super.initState();
   }
 
   void startTimer() {
-    timer = Timer.periodic(Duration(milliseconds: widget.stepMilis), (tickTimer) {
+    timer?.cancel();
+    timer =
+        Timer.periodic(Duration(milliseconds: widget.stepMilis), (tickTimer) {
       if (!widget.animate) return;
       final moved = algorithm.step(graph);
       update();
@@ -51,14 +56,37 @@ class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
   @override
   void didUpdateWidget(covariant GraphViewCustomPainter oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.animate && !timer.isActive) {
-      startTimer();
+    graph = widget.graph;
+
+    if (widget.algorithm != algorithm) {
+      algorithm = widget.algorithm;
+      algorithm.init(graph);
+    }
+
+    if (oldWidget.stepMilis != widget.stepMilis) {
+      if (timer != null && timer!.isActive) {
+        timer!.cancel();
+      }
+      if (widget.animate) {
+        startTimer();
+      }
+      return;
+    }
+
+    if (widget.animate) {
+      if (timer == null || !timer!.isActive) {
+        startTimer();
+      }
+    } else {
+      if (timer != null && timer!.isActive) {
+        timer!.cancel();
+      }
     }
   }
 
   @override
   void dispose() {
-    timer.cancel();
+    timer?.cancel();
     super.dispose();
   }
 

@@ -1,11 +1,15 @@
 part of graphview;
 
 class GraphChildDelegate {
+  static const double _defaultCenterViewportExtent = 2000;
+  static const double _centerViewportPadding = 200;
+
   final Graph graph;
   final Algorithm algorithm;
   final NodeWidgetBuilder builder;
   GraphViewController? controller;
   final bool centerGraph;
+  final Size? centerGraphViewportSize;
   final NodeDraggingConfiguration? nodeDraggingConfig;
   Graph? _cachedVisibleGraph;
   int? _cachedVisibleGraphGeneration;
@@ -17,6 +21,7 @@ class GraphChildDelegate {
     required this.builder,
     required this.controller,
     this.centerGraph = false,
+    this.centerGraphViewportSize,
     this.nodeDraggingConfig,
   });
 
@@ -64,25 +69,63 @@ class GraphChildDelegate {
     final result = graph != oldDelegate.graph ||
         graph.generation != oldDelegate.graph.generation ||
         algorithm != oldDelegate.algorithm ||
+        centerGraph != oldDelegate.centerGraph ||
+        centerGraphViewportSize != oldDelegate.centerGraphViewportSize ||
         nodeDraggingConfig != oldDelegate.nodeDraggingConfig;
     if (result) _needsRecalculation = true;
     return result;
   }
 
-  Size runAlgorithm() {
+  Size runAlgorithm(Size availableSize) {
     final visibleGraph = getVisibleGraphOnly();
 
     if (centerGraph) {
-      // Use large viewport and center the graph
-      var viewPortSize = Size(200000, 200000);
-      var centerX = viewPortSize.width / 2;
-      var centerY = viewPortSize.height / 2;
+      final viewPortSize =
+          _resolveCenterViewportSize(visibleGraph, availableSize);
+      final centerX = viewPortSize.width / 2;
+      final centerY = viewPortSize.height / 2;
       algorithm.run(visibleGraph, centerX, centerY);
       return viewPortSize;
     } else {
       // Use default algorithm behavior
       return algorithm.run(visibleGraph, 0, 0);
     }
+  }
+
+  Size _resolveCenterViewportSize(Graph visibleGraph, Size availableSize) {
+    if (centerGraphViewportSize != null &&
+        _isFinitePositive(centerGraphViewportSize!)) {
+      return centerGraphViewportSize!;
+    }
+
+    // Prefer actual layout constraints when available to avoid oversized
+    // synthetic viewports and precision issues.
+    if (_isFinitePositive(availableSize)) {
+      return availableSize;
+    }
+
+    // Fallback for unbounded constraints: estimate from graph size with padding.
+    final measuredGraphSize = algorithm.run(visibleGraph, 0, 0);
+    return _viewportFromGraphSize(measuredGraphSize);
+  }
+
+  bool _isFinitePositive(Size size) {
+    return size.width.isFinite &&
+        size.height.isFinite &&
+        size.width > 0 &&
+        size.height > 0;
+  }
+
+  Size _viewportFromGraphSize(Size graphSize) {
+    final width = graphSize.width.isFinite
+        ? max(graphSize.width + _centerViewportPadding * 2,
+            _defaultCenterViewportExtent)
+        : _defaultCenterViewportExtent;
+    final height = graphSize.height.isFinite
+        ? max(graphSize.height + _centerViewportPadding * 2,
+            _defaultCenterViewportExtent)
+        : _defaultCenterViewportExtent;
+    return Size(width, height);
   }
 
   bool isNodeVisible(Node node) {

@@ -2,31 +2,68 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
+class _GraphFixture {
+  final Graph graph;
+  final Map<int, Node> nodes;
+
+  _GraphFixture(this.graph, this.nodes);
+}
+
+_GraphFixture _createGraphFixture({
+  required List<int> nodeIds,
+  List<List<int>> edges = const [],
+  Map<int, Offset> positions = const {},
+  bool setDefaultNodeSize = false,
+  Size defaultNodeSize = const Size(50, 50),
+}) {
+  final graph = Graph();
+  final nodes = <int, Node>{
+    for (final id in nodeIds) id: Node.Id(id),
+  };
+
+  graph.addNodes(nodes.values.toList());
+
+  for (final edge in edges) {
+    graph.addEdge(nodes[edge[0]]!, nodes[edge[1]]!);
+  }
+
+  positions.forEach((id, position) {
+    nodes[id]!.position = position;
+  });
+
+  if (setDefaultNodeSize) {
+    for (final node in nodes.values) {
+      node.size = defaultNodeSize;
+    }
+  }
+
+  return _GraphFixture(graph, nodes);
+}
+
 void main() {
   group('Distance Threshold Tests', () {
-    testWidgets('Movements less than 1px do not mark edges dirty', (WidgetTester tester) async {
-      // Create graph with two connected nodes
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      final node2 = Node.Id(2);
-      graph.addNode(node1);
-      graph.addNode(node2);
-
-      graph.addEdge(node1, node2);
-
-      // Set initial positions
-      node1.position = const Offset(100, 100);
-      node2.position = const Offset(200, 200);
-
-      // Set node sizes (required for rendering)
-      node1.size = const Size(50, 50);
-      node2.size = const Size(50, 50);
+    testWidgets('Movements less than 1px do not mark edges dirty',
+        (WidgetTester tester) async {
+      final fixture = _createGraphFixture(
+        nodeIds: [1, 2],
+        edges: const [
+          [1, 2]
+        ],
+        positions: const {
+          1: Offset(100, 100),
+          2: Offset(200, 200),
+        },
+        setDefaultNodeSize: true,
+      );
+      final graph = fixture.graph;
+      final node1 = fixture.nodes[1]!;
 
       // Create widget tree with GraphView
       graph.isTree = true;
       final controller = GraphViewController();
       final configuration = BuchheimWalkerConfiguration();
-      final algorithm = BuchheimWalkerAlgorithm(configuration, TreeEdgeRenderer(configuration));
+      final algorithm = BuchheimWalkerAlgorithm(
+          configuration, TreeEdgeRenderer(configuration));
 
       await tester.pumpWidget(
         MaterialApp(
@@ -53,8 +90,8 @@ void main() {
       // Get the render object and verify initial dirty state
       final graphViewFinder = find.byType(GraphView);
       expect(graphViewFinder, findsOneWidget);
-      final renderBox =
-          tester.renderObject<RenderCustomLayoutBox>(find.byType(GraphViewWidget));
+      final renderBox = tester
+          .renderObject<RenderCustomLayoutBox>(find.byType(GraphViewWidget));
       expect(renderBox.getDirtyEdges(), isEmpty);
 
       // Start a drag interaction on node "1"
@@ -79,16 +116,17 @@ void main() {
     });
 
     test('Movements of exactly 1px mark edges dirty', () {
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      final node2 = Node.Id(2);
-      graph.addNode(node1);
-      graph.addNode(node2);
-
-      graph.addEdge(node1, node2);
-
-      node1.position = const Offset(100, 100);
-      node2.position = const Offset(200, 200);
+      final fixture = _createGraphFixture(
+        nodeIds: [1, 2],
+        edges: const [
+          [1, 2]
+        ],
+        positions: const {
+          1: Offset(100, 100),
+          2: Offset(200, 200),
+        },
+      );
+      final node1 = fixture.nodes[1]!;
 
       // Test that distance of exactly 1.0 triggers update
       final newPosition = const Offset(101, 100); // 1px horizontal movement
@@ -98,16 +136,17 @@ void main() {
     });
 
     test('Movements greater than 1px mark edges dirty', () {
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      final node2 = Node.Id(2);
-      graph.addNode(node1);
-      graph.addNode(node2);
-
-      graph.addEdge(node1, node2);
-
-      node1.position = const Offset(100, 100);
-      node2.position = const Offset(200, 200);
+      final fixture = _createGraphFixture(
+        nodeIds: [1, 2],
+        edges: const [
+          [1, 2]
+        ],
+        positions: const {
+          1: Offset(100, 100),
+          2: Offset(200, 200),
+        },
+      );
+      final node1 = fixture.nodes[1]!;
 
       // Test that distance > 1.0 triggers update
       final newPosition = const Offset(105, 100); // 5px horizontal movement
@@ -118,11 +157,11 @@ void main() {
     });
 
     test('Sub-pixel diagonal movements do not mark edges dirty', () {
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      graph.addNode(node1);
-
-      node1.position = const Offset(100, 100);
+      final fixture = _createGraphFixture(
+        nodeIds: [1],
+        positions: const {1: Offset(100, 100)},
+      );
+      final node1 = fixture.nodes[1]!;
 
       // Test diagonal movement < 1px
       final newPosition = const Offset(100.5, 100.5); // ~0.707px diagonal
@@ -133,11 +172,11 @@ void main() {
     });
 
     test('Exactly 1px diagonal movement marks edges dirty', () {
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      graph.addNode(node1);
-
-      node1.position = const Offset(100, 100);
+      final fixture = _createGraphFixture(
+        nodeIds: [1],
+        positions: const {1: Offset(100, 100)},
+      );
+      final node1 = fixture.nodes[1]!;
 
       // Test diagonal movement = 1px
       // For 1px distance: x^2 + y^2 = 1, so x = y = sqrt(0.5) ≈ 0.707
@@ -148,20 +187,19 @@ void main() {
     });
 
     test('Distance threshold prevents redundant edge recalculations', () {
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      final node2 = Node.Id(2);
-      final node3 = Node.Id(3);
-      graph.addNode(node1);
-      graph.addNode(node2);
-      graph.addNode(node3);
-
-      graph.addEdge(node1, node2);
-      graph.addEdge(node2, node3);
-
-      node1.position = const Offset(100, 100);
-      node2.position = const Offset(200, 100);
-      node3.position = const Offset(300, 100);
+      final fixture = _createGraphFixture(
+        nodeIds: [1, 2, 3],
+        edges: const [
+          [1, 2],
+          [2, 3]
+        ],
+        positions: const {
+          1: Offset(100, 100),
+          2: Offset(200, 100),
+          3: Offset(300, 100),
+        },
+      );
+      final node1 = fixture.nodes[1]!;
 
       // Simulate small movement (0.5px)
       final smallMovement = const Offset(100.5, 100);
@@ -175,11 +213,11 @@ void main() {
     });
 
     test('Threshold applies to vertical movements', () {
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      graph.addNode(node1);
-
-      node1.position = const Offset(100, 100);
+      final fixture = _createGraphFixture(
+        nodeIds: [1],
+        positions: const {1: Offset(100, 100)},
+      );
+      final node1 = fixture.nodes[1]!;
 
       // Sub-pixel vertical movement
       final subPixelMove = const Offset(100, 100.5);
@@ -193,19 +231,19 @@ void main() {
     });
 
     test('Multiple consecutive sub-pixel movements accumulate correctly', () {
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      graph.addNode(node1);
-
-      node1.position = const Offset(100, 100);
+      final fixture = _createGraphFixture(
+        nodeIds: [1],
+        positions: const {1: Offset(100, 100)},
+      );
+      final node1 = fixture.nodes[1]!;
 
       // Simulate multiple 0.3px movements, measuring cumulative distance from origin
       final originPos = node1.position;
       final movements = [
-        const Offset(100.3, 100),   // 0.3px from origin
-        const Offset(100.6, 100),   // 0.6px from origin
-        const Offset(100.9, 100),   // 0.9px from origin
-        const Offset(101.2, 100),   // 1.2px from origin (now > 1px)
+        const Offset(100.3, 100), // 0.3px from origin
+        const Offset(100.6, 100), // 0.6px from origin
+        const Offset(100.9, 100), // 0.9px from origin
+        const Offset(101.2, 100), // 1.2px from origin (now > 1px)
       ];
 
       for (var i = 0; i < movements.length; i++) {
@@ -222,16 +260,17 @@ void main() {
     });
 
     test('Zero movement does not mark edges dirty', () {
-      final graph = Graph();
-      final node1 = Node.Id(1);
-      final node2 = Node.Id(2);
-      graph.addNode(node1);
-      graph.addNode(node2);
-
-      graph.addEdge(node1, node2);
-
-      node1.position = const Offset(100, 100);
-      node2.position = const Offset(200, 200);
+      final fixture = _createGraphFixture(
+        nodeIds: [1, 2],
+        edges: const [
+          [1, 2]
+        ],
+        positions: const {
+          1: Offset(100, 100),
+          2: Offset(200, 200),
+        },
+      );
+      final node1 = fixture.nodes[1]!;
 
       // No movement
       final samePosition = const Offset(100, 100);
@@ -243,7 +282,7 @@ void main() {
 
     test('Threshold constant is 1.0 pixels', () {
       // Verify the threshold value matches specification
-      const double expectedThreshold = 1.0;
+      const expectedThreshold = 1.0;
 
       // This test documents that movements < 1px should not trigger recalculation
       final testDistance1 = 0.999;

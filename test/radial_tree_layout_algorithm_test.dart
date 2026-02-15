@@ -67,7 +67,7 @@ void main() {
       var size = algorithm.run(graph, 10, 10);
       var timeTaken = stopwatch.elapsed.inMilliseconds;
 
-      expect(timeTaken < 1000, true);
+      expect(timeTaken, lessThan(1000));
 
       // Verify that nodes have been positioned (not at origin)
       expect(graph.getNodeAtPosition(0).position, isNot(Offset.zero));
@@ -256,9 +256,6 @@ void main() {
           configuration, TreeEdgeRenderer(configuration));
 
       var graph = _createGraph(1000);
-      for (var i = 0; i < graph.nodeCount(); i++) {
-        graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
-      }
 
       var stopwatch = Stopwatch()..start();
       algorithm.run(graph, 0, 0);
@@ -266,7 +263,7 @@ void main() {
 
       print('Timetaken $timeTaken for ${graph.nodeCount()} nodes');
 
-      expect(timeTaken < 100, true);
+      expect(timeTaken, lessThan(100));
     });
 
     test('RadialTreeLayout applies shift correctly', () {

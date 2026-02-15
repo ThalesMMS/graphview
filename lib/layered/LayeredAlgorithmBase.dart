@@ -1,6 +1,15 @@
 part of graphview;
 
-abstract class LayeredAlgorithmBase extends Algorithm {
+abstract class LayeredNodeData {
+  Set<Node> get reversed;
+  bool get isDummy;
+  int get layer;
+  set layer(int value);
+  bool get isReversed;
+}
+
+abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
+    TEdgeData> extends Algorithm {
   Set<Node> stack = {};
   Set<Node> visited = {};
   List<List<Node>> layers = [];
@@ -8,16 +17,22 @@ abstract class LayeredAlgorithmBase extends Algorithm {
   late Graph graph;
   var nodeCount = 1;
 
-  int get dummyId => 'Dummy ${nodeCount++}'.hashCode;
+  int get dummyId {
+    // Ensure generated IDs do not collide with existing node hash codes in this graph.
+    while (graph.nodes.any((node) => node.hashCode == nodeCount)) {
+      nodeCount++;
+    }
+    return nodeCount++;
+  }
 
   // Abstract getter for configuration to be implemented by subclasses
   SugiyamaConfiguration get configuration;
 
   // Abstract getter for nodeData to be implemented by subclasses
-  Map<Node, dynamic> get nodeData;
+  Map<Node, TNodeData> get nodeData;
 
   // Abstract getter for edgeData to be implemented by subclasses
-  Map<Edge, dynamic> get edgeData;
+  Map<Edge, TEdgeData> get edgeData;
 
   bool isVertical() {
     return OrientationUtils.isVertical(configuration.orientation);
@@ -66,6 +81,11 @@ abstract class LayeredAlgorithmBase extends Algorithm {
       final target = edge.destination;
       if (stack.contains(target)) {
         final storedData = edgeData.remove(edge);
+        if (storedData == null) {
+          throw StateError(
+            'Missing edge metadata while reversing edge $edge in cycle removal',
+          );
+        }
         graph.removeEdge(edge);
         final reversedEdge = graph.addEdge(target, node);
         edgeData[reversedEdge] = storedData;
@@ -107,11 +127,11 @@ abstract class LayeredAlgorithmBase extends Algorithm {
 
   // Abstract method to create edge data with bend points
   // Subclasses must implement this to create their specific edge data type
-  dynamic createEdgeDataWithBendPoints(List<double> bendPoints);
+  TEdgeData createEdgeDataWithBendPoints(List<double> bendPoints);
 
   // Abstract method to get bend points from edge data
   // Subclasses must implement this to access bend points from their specific edge data type
-  List<double> getBendPointsFromEdgeData(dynamic edgeData);
+  List<double> getBendPointsFromEdgeData(TEdgeData edgeData);
 
   void denormalize() {
     // Remove dummy nodes and create bend points for articulated edges
@@ -123,8 +143,12 @@ abstract class LayeredAlgorithmBase extends Algorithm {
         if (nodeData[current]!.isDummy) {
           final predecessor = graph.predecessorsOf(current)[0];
           final successor = graph.successorsOf(current)[0];
-          final bendPoints = getBendPointsFromEdgeData(
-              edgeData[graph.getEdgeBetween(predecessor, current)!]!);
+          final edgeId = graph.getEdgeBetween(predecessor, current);
+          final existingEdgeData =
+              edgeId != null ? edgeData[edgeId] : null;
+          final bendPoints = existingEdgeData != null
+              ? getBendPointsFromEdgeData(existingEdgeData)
+              : <double>[];
 
           if (bendPoints.isEmpty ||
               !bendPoints.contains(current.x + predecessor.width / 2)) {

@@ -1,9 +1,12 @@
 part of graphview;
 
-class SugiyamaNodeData {
+class SugiyamaNodeData implements LayeredNodeData {
+  @override
   Set<Node> reversed = {};
+  @override
   bool isDummy = false;
   int median = -1;
+  @override
   int layer = -1;
   int position = -1;
   List<Node> predecessorNodes = [];
@@ -12,6 +15,7 @@ class SugiyamaNodeData {
 
   SugiyamaNodeData(this.lineType);
 
+  @override
   bool get isReversed => reversed.isNotEmpty;
 
   @override

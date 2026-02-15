@@ -202,17 +202,19 @@ class RenderCustomLayoutBox extends RenderBox
       final expandingEdges =
           _delegate.controller?.getExpandingEdges(graph).toSet() ?? {};
 
-     for (final edge in graph.edges) {
+      for (final edge in graph.edges) {
         var edgePaintWithOpacity = Paint.from(edge.paint ?? edgePaint);
+        final baseColor = edgePaintWithOpacity.color;
 
         // Apply fade effect for collapsing edges (fade out)
         if (collapsingEdges.contains(edge)) {
           edgePaintWithOpacity.color =
-              edgePaint.color.withValues(alpha: 1.0 - t);
+              baseColor.withValues(alpha: baseColor.opacity * (1.0 - t));
         }
         // Apply fade effect for expanding edges (fade in)
         else if (expandingEdges.contains(edge)) {
-          edgePaintWithOpacity.color = edgePaint.color.withValues(alpha: t);
+          edgePaintWithOpacity.color =
+              baseColor.withValues(alpha: baseColor.opacity * t);
         }
 
         algorithm.renderer?.renderEdge(
@@ -270,7 +272,7 @@ class RenderCustomLayoutBox extends RenderBox
 
     if (_needsFullRecalculation || !_isInitialized) {
       _layoutNodesLazily(looseConstraints);
-      _cachedSize = _delegate.runAlgorithm();
+      _cachedSize = _delegate.runAlgorithm(looseConstraints.biggest);
       _isInitialized = true;
       _needsFullRecalculation = false;
     }
@@ -582,7 +584,8 @@ class RenderCustomLayoutBox extends RenderBox
       _draggedNode = node;
       _dragStartLocalPosition = localPosition;
       _dragStartNodePosition = node.position;
-      _previousNodePositions[node] = node.position; // Initialize previous position
+      _previousNodePositions[node] =
+          node.position; // Initialize previous position
       _isDragging = false;
     }
   }
@@ -606,7 +609,8 @@ class RenderCustomLayoutBox extends RenderBox
       final newPosition = startNodePosition + delta;
 
       // Calculate distance moved from previous position
-      final previousPosition = _previousNodePositions[draggedNode] ?? startNodePosition;
+      final previousPosition =
+          _previousNodePositions[draggedNode] ?? startNodePosition;
       final distanceMoved = (newPosition - previousPosition).distance;
 
       // Only update and mark dirty if movement exceeds threshold (skip sub-pixel updates)
@@ -622,7 +626,8 @@ class RenderCustomLayoutBox extends RenderBox
 
         graph.markModified();
         markNeedsPaint();
-        _nodeDraggingConfiguration?.onNodeDragUpdate?.call(draggedNode, newPosition);
+        _nodeDraggingConfiguration?.onNodeDragUpdate
+            ?.call(draggedNode, newPosition);
       }
     }
   }
@@ -632,10 +637,12 @@ class RenderCustomLayoutBox extends RenderBox
 
     // Invoke onNodeDragEnd callback before resetting state
     if (_isDragging && _draggedNode != null) {
-      _nodeDraggingConfiguration?.onNodeDragEnd?.call(_draggedNode!, _draggedNode!.position);
-      // Clean up previous position tracking
-      _previousNodePositions.remove(_draggedNode);
+      _nodeDraggingConfiguration?.onNodeDragEnd
+          ?.call(_draggedNode!, _draggedNode!.position);
     }
+
+    // Always clean up previous position tracking on pointer up.
+    _previousNodePositions.remove(_draggedNode);
 
     _activePointerId = null;
     _draggedNode = null;

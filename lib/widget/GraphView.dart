@@ -15,6 +15,7 @@ class GraphView extends StatefulWidget {
   final bool autoZoomToFit;
   final GraphChildDelegate delegate;
   final bool centerGraph;
+  final Size? centerGraphViewportSize;
   final NodeDraggingConfiguration? nodeDraggingConfig;
 
   GraphView({
@@ -27,6 +28,7 @@ class GraphView extends StatefulWidget {
     this.controller,
     this.toggleAnimationDuration,
     this.centerGraph = false,
+    this.centerGraphViewportSize,
     this.nodeDraggingConfig,
   })  : _isBuilder = false,
         autoZoomToFit = false,
@@ -36,7 +38,9 @@ class GraphView extends StatefulWidget {
             graph: graph,
             algorithm: algorithm,
             builder: builder,
-            controller: null,
+            controller: controller,
+            centerGraph: centerGraph,
+            centerGraphViewportSize: centerGraphViewportSize,
             nodeDraggingConfig: nodeDraggingConfig),
         super(key: key);
 
@@ -53,6 +57,7 @@ class GraphView extends StatefulWidget {
     this.panAnimationDuration,
     this.toggleAnimationDuration,
     this.centerGraph = false,
+    this.centerGraphViewportSize,
     this.nodeDraggingConfig,
   })  : _isBuilder = true,
         delegate = GraphChildDelegate(
@@ -61,6 +66,7 @@ class GraphView extends StatefulWidget {
             builder: builder,
             controller: controller,
             centerGraph: centerGraph,
+            centerGraphViewportSize: centerGraphViewportSize,
             nodeDraggingConfig: nodeDraggingConfig),
         assert(!(autoZoomToFit && initialNode != null),
             'Cannot use both autoZoomToFit and initialNode together. Choose one.'),
@@ -108,6 +114,54 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
           jumpToNodeUsingKey(widget.initialNode!, false);
         }
       });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant GraphView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.controller != oldWidget.controller) {
+      oldWidget.controller?._detach();
+      widget.controller?._attach(this);
+
+      final newProvidedController = widget.controller?.transformationController;
+
+      if (!identical(newProvidedController, _transformationController)) {
+        final previousController = _transformationController;
+        final previousOwnedController = _ownsTransformationController;
+
+        if (newProvidedController != null) {
+          _ownsTransformationController = false;
+          _transformationController = newProvidedController;
+        } else {
+          _ownsTransformationController = true;
+          _transformationController = TransformationController(
+            previousController.value.clone(),
+          );
+        }
+
+        if (previousOwnedController &&
+            !identical(previousController, _transformationController)) {
+          previousController.dispose();
+        }
+      }
+    }
+
+    final oldPanDuration =
+        oldWidget.panAnimationDuration ?? const Duration(milliseconds: 600);
+    final updatedPanDuration =
+        widget.panAnimationDuration ?? const Duration(milliseconds: 600);
+    if (oldPanDuration != updatedPanDuration) {
+      _panController.duration = updatedPanDuration;
+    }
+
+    final oldToggleDuration =
+        oldWidget.toggleAnimationDuration ?? const Duration(milliseconds: 600);
+    final updatedToggleDuration =
+        widget.toggleAnimationDuration ?? const Duration(milliseconds: 600);
+    if (oldToggleDuration != updatedToggleDuration) {
+      _nodeController.duration = updatedToggleDuration;
     }
   }
 
@@ -193,6 +247,13 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
 
     final vp = renderBox.size;
     final bounds = graph.calculateGraphBounds();
+    if (graph.nodes.isEmpty ||
+        !bounds.width.isFinite ||
+        !bounds.height.isFinite ||
+        bounds.width <= 0 ||
+        bounds.height <= 0) {
+      return;
+    }
 
     const paddingFactor = 0.95;
     final scaleX = (vp.width / bounds.width) * paddingFactor;
@@ -222,8 +283,7 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
     _panController.reset();
     _panAnimation = Matrix4Tween(
             begin: _transformationController.value, end: target)
-        .animate(
-            CurvedAnimation(parent: _panController, curve: Curves.linear));
+        .animate(CurvedAnimation(parent: _panController, curve: Curves.linear));
     _panAnimation!.addListener(_onPanTick);
     _panController.forward();
   }

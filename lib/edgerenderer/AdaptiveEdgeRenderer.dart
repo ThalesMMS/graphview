@@ -48,7 +48,7 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
   @override
   void renderEdge(Canvas canvas, Edge edge, Paint paint) {
     // Check if edge has a custom renderer - if so, delegate to it
-    if (edge.renderer != null) {
+    if (edge.renderer != null && edge.renderer != this) {
       edge.renderer!.renderEdge(canvas, edge, paint);
       return;
     }
