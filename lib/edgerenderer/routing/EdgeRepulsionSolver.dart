@@ -61,6 +61,12 @@ class EdgeRepulsionSolver {
   /// Cache of edge segments for reuse.
   final List<EdgeSegment> _segments = [];
 
+  /// Stable unique IDs for each segment, used for deterministic pair keys.
+  final Map<EdgeSegment, int> _segmentIds = {};
+
+  /// Monotonic counter for assigning unique segment IDs.
+  int _nextSegmentId = 0;
+
   /// Generation counter to track when grid needs rebuilding.
   int _generation = 0;
 
@@ -74,6 +80,8 @@ class EdgeRepulsionSolver {
   void clear() {
     _grid.clear();
     _segments.clear();
+    _segmentIds.clear();
+    _nextSegmentId = 0;
     _generation++;
   }
 
@@ -82,6 +90,7 @@ class EdgeRepulsionSolver {
   /// The segment is added to all cells that its bounding box overlaps.
   void addSegment(EdgeSegment segment) {
     _segments.add(segment);
+    _segmentIds[segment] = _nextSegmentId++;
 
     final bounds = segment.getBounds();
 
@@ -265,14 +274,14 @@ class EdgeRepulsionSolver {
   ///
   /// The key is order-independent so (A, B) and (B, A) produce the same key.
   String _getPairKey(EdgeSegment a, EdgeSegment b) {
-    final hashA = a.hashCode;
-    final hashB = b.hashCode;
+    final idA = _segmentIds.putIfAbsent(a, () => _nextSegmentId++);
+    final idB = _segmentIds.putIfAbsent(b, () => _nextSegmentId++);
 
     // Ensure consistent ordering
-    if (hashA < hashB) {
-      return '$hashA,$hashB';
+    if (idA < idB) {
+      return '$idA,$idB';
     } else {
-      return '$hashB,$hashA';
+      return '$idB,$idA';
     }
   }
 

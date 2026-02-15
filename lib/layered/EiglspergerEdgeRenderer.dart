@@ -125,14 +125,36 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
       final size = bendPoints.length;
       // Check if this specific edge was reversed (destination is in source's reversed set)
       final isThisEdgeReversed = nodeData[source]?.reversed.contains(destination) ?? false;
-      if (isThisEdgeReversed) {
-        clippedLine = clipLineEnd(bendPoints[2], bendPoints[3], stopX, stopY, destination.x,
-            destination.y, destination.width, destination.height);
-      } else {
-        clippedLine = clipLineEnd(bendPoints[size - 4], bendPoints[size - 3],
-            stopX, stopY, descOffset.dx,
-            descOffset.dy, destination.width, destination.height);
+
+      // Safely determine the line start used for clipping/arrow direction.
+      var startX = sourceCenter.dx;
+      var startY = sourceCenter.dy;
+      if (size >= 4) {
+        if (isThisEdgeReversed) {
+          startX = bendPoints[2] + transitionDx;
+          startY = bendPoints[3] + transitionDy;
+        } else {
+          startX = bendPoints[size - 4] + transitionDx;
+          startY = bendPoints[size - 3] + transitionDy;
+        }
+      } else if (size >= 2) {
+        // Fallback: use the last available bend point pair when present.
+        startX = bendPoints[size - 2] + transitionDx;
+        startY = bendPoints[size - 1] + transitionDy;
       }
+
+      final clipDestX = isThisEdgeReversed && size >= 4 ? destination.x : descOffset.dx;
+      final clipDestY = isThisEdgeReversed && size >= 4 ? destination.y : descOffset.dy;
+      clippedLine = clipLineEnd(
+        startX,
+        startY,
+        stopX,
+        stopY,
+        clipDestX,
+        clipDestY,
+        destination.width,
+        destination.height,
+      );
       final triangleCentroid = drawTriangle(canvas, trianglePaint, clippedLine[0], clippedLine[1], clippedLine[2], clippedLine[3]);
       path.lineTo(triangleCentroid.dx, triangleCentroid.dy);
     } else {

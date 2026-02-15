@@ -5,6 +5,7 @@ class GraphViewCustomPainter extends StatefulWidget {
   final FruchtermanReingoldAlgorithm algorithm;
   final Paint? paint;
   final NodeWidgetBuilder builder;
+  final bool animate;
   final stepMilis = 25;
 
   GraphViewCustomPainter({
@@ -12,6 +13,7 @@ class GraphViewCustomPainter extends StatefulWidget {
     required this.graph,
     required this.algorithm,
     this.paint,
+    this.animate = true,
     required this.builder,
   }) : super(key: key);
 
@@ -36,10 +38,22 @@ class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
   }
 
   void startTimer() {
-    timer = Timer.periodic(Duration(milliseconds: widget.stepMilis), (timer) {
-      algorithm.step(graph);
+    timer = Timer.periodic(Duration(milliseconds: widget.stepMilis), (tickTimer) {
+      if (!widget.animate) return;
+      final moved = algorithm.step(graph);
       update();
+      if (!moved) {
+        tickTimer.cancel();
+      }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant GraphViewCustomPainter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animate && !timer.isActive) {
+      startTimer();
+    }
   }
 
   @override

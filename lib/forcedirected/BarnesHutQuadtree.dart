@@ -117,14 +117,20 @@ class BarnesHutQuadtree {
 
       // Reinsert the old node
       if (oldNode != null) {
-        _insertIntoChild(oldNode);
+        if (!_insertIntoChild(oldNode)) {
+          return false;
+        }
       }
 
       // Insert the new node
-      _insertIntoChild(graphNode);
+      if (!_insertIntoChild(graphNode)) {
+        return false;
+      }
     } else {
       // This is an internal node, insert into appropriate child
-      _insertIntoChild(graphNode);
+      if (!_insertIntoChild(graphNode)) {
+        return false;
+      }
     }
 
     // Update center of mass and total mass
@@ -155,11 +161,18 @@ class BarnesHutQuadtree {
   ///
   /// Attempts to insert the node into each child quadrant in order (NW, NE, SW, SE)
   /// until one accepts it based on spatial bounds.
-  void _insertIntoChild(Node graphNode) {
-    if (northWest!.insert(graphNode)) return;
-    if (northEast!.insert(graphNode)) return;
-    if (southWest!.insert(graphNode)) return;
-    if (southEast!.insert(graphNode)) return;
+  ///
+  /// Returns true if a child accepted the node, false otherwise.
+  bool _insertIntoChild(Node graphNode) {
+    if (northWest!.insert(graphNode)) return true;
+    if (northEast!.insert(graphNode)) return true;
+    if (southWest!.insert(graphNode)) return true;
+    final inserted = southEast!.insert(graphNode);
+    assert(
+      inserted,
+      'Node at ${graphNode.position} could not be inserted into any quadrant within $bounds',
+    );
+    return inserted;
   }
 
   /// Updates the center of mass and total mass incrementally for this node.

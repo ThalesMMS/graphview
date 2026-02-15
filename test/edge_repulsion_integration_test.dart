@@ -52,6 +52,7 @@ void main() {
 
       // Render the second edge (should use cached repulsion results)
       renderer.renderEdge(canvas, edge2, paint);
+      recorder.endRecording();
 
       // Verify that repulsion was calculated by checking the internal state
       // Since we can't access private fields directly, we verify behavior through rendering
@@ -98,6 +99,7 @@ void main() {
       // Render edges without repulsion
       renderer.renderEdge(canvas, edge1, paint);
       renderer.renderEdge(canvas, edge2, paint);
+      recorder.endRecording();
 
       // The test passes if rendering completes without errors
       expect(true, isTrue);
@@ -132,12 +134,14 @@ void main() {
       final canvas1 = Canvas(recorder1);
       final paint = Paint()..color = Colors.black;
       renderer.renderEdge(canvas1, edge1, paint);
+      recorder1.endRecording();
 
       // Second render cycle (should reset repulsion calculation)
       renderer.setGraph(graph);
       final recorder2 = PictureRecorder();
       final canvas2 = Canvas(recorder2);
       renderer.renderEdge(canvas2, edge1, paint);
+      recorder2.endRecording();
 
       // The test passes if both render cycles complete without errors
       expect(true, isTrue);
@@ -176,6 +180,7 @@ void main() {
       final canvas = Canvas(recorder);
       final paint = Paint();
       renderer.renderEdge(canvas, edge, paint);
+      recorder.endRecording();
 
       // Call applyEdgeRepulsion (should use cached repulsion if any)
       final modifiedPath = renderer.applyEdgeRepulsion([edge], edge, originalPath);
@@ -230,6 +235,7 @@ void main() {
         // Should render without errors for all routing modes
         renderer.renderEdge(canvas, edge1, paint);
         renderer.renderEdge(canvas, edge2, paint);
+        recorder.endRecording();
       }
 
       expect(true, isTrue);
@@ -282,6 +288,7 @@ void main() {
       for (final edge in graph.edges) {
         renderer.renderEdge(canvas, edge, paint);
       }
+      recorder.endRecording();
 
       expect(true, isTrue);
     });
@@ -310,6 +317,7 @@ void main() {
 
       // Should render self-loop without errors
       renderer.renderEdge(canvas, selfLoop, paint);
+      recorder.endRecording();
 
       expect(true, isTrue);
     });

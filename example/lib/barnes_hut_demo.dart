@@ -277,9 +277,9 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withAlpha((0.1 * 255).round()),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withAlpha((0.3 * 255).round())),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,7 +288,7 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: color.withValues(alpha: 0.8),
+              color: color.withAlpha((0.8 * 255).round()),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -315,7 +315,7 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
         color: Colors.blue,
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
+            color: Colors.blue.withAlpha((0.3 * 255).round()),
             spreadRadius: 1,
           ),
         ],

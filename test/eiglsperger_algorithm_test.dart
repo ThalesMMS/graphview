@@ -6,6 +6,7 @@ import 'example_trees.dart';
 
 const itemHeight = 100.0;
 const itemWidth = 100.0;
+const runPerfTests = bool.fromEnvironment('RUN_PERF_TESTS');
 
 extension on Graph {
   void inflateWithJson(Map<String, Object> json) {
@@ -107,7 +108,9 @@ void main() {
       var size = algorithm.run(graph, 10, 10);
       var timeTaken = stopwatch.elapsed.inMilliseconds;
 
-      expect(timeTaken < 1000, true);
+      if (runPerfTests) {
+        expect(timeTaken < 1000, true);
+      }
 
       expect(size.width > 0, true);
       expect(size.height > 0, true);

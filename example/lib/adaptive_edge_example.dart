@@ -340,7 +340,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: (isHub ? Colors.orange : Colors.blue).withValues(alpha: 0.3),
+                        color: (isHub ? Colors.orange : Colors.blue).withAlpha((0.3 * 255).round()),
                         spreadRadius: 2,
                         blurRadius: 5,
                       ),

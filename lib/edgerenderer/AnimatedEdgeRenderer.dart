@@ -45,6 +45,11 @@ class AnimatedEdgeRenderer extends ArrowEdgeRenderer {
 
   @override
   void renderEdge(Canvas canvas, Edge edge, Paint paint) {
+    if (edge.renderer != null && edge.renderer != this) {
+      edge.renderer!.renderEdge(canvas, edge, paint);
+      return;
+    }
+
     // First render the base edge with arrow using parent implementation
     super.renderEdge(canvas, edge, paint);
 

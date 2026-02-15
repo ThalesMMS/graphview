@@ -1037,8 +1037,10 @@ class EiglspergerAlgorithm extends Algorithm {
     });
   }
 
-  /// Resolves node overlaps within each layer by shifting nodes horizontally
+  /// Resolves node overlaps within each layer based on layout orientation.
   void resolveNodeOverlaps() {
+    final verticalLayout = isVertical();
+
     // Group nodes by layer
     final nodesByLayer = <int, List<Node>>{};
     for (var node in graph.nodes) {
@@ -1052,20 +1054,31 @@ class EiglspergerAlgorithm extends Algorithm {
     for (var layer in nodesByLayer.keys) {
       final nodesInLayer = nodesByLayer[layer]!;
 
-      // Sort nodes by x-coordinate
-      nodesInLayer.sort((a, b) => a.x.compareTo(b.x));
+      if (verticalLayout) {
+        // Top-bottom / bottom-top: resolve overlaps along x using node width.
+        nodesInLayer.sort((a, b) => a.x.compareTo(b.x));
 
-      // Shift overlapping nodes
-      for (var i = 0; i < nodesInLayer.length - 1; i++) {
-        final current = nodesInLayer[i];
-        final next = nodesInLayer[i + 1];
+        for (var i = 0; i < nodesInLayer.length - 1; i++) {
+          final current = nodesInLayer[i];
+          final next = nodesInLayer[i + 1];
+          final minX = current.x + current.width + configuration.nodeSeparation;
 
-        // Calculate minimum required separation
-        final minX = current.x + current.width + configuration.nodeSeparation;
+          if (next.x < minX) {
+            next.x = minX;
+          }
+        }
+      } else {
+        // Left-right / right-left: resolve overlaps along y using node height.
+        nodesInLayer.sort((a, b) => a.y.compareTo(b.y));
 
-        // If next node overlaps or is too close, shift it
-        if (next.x < minX) {
-          next.x = minX;
+        for (var i = 0; i < nodesInLayer.length - 1; i++) {
+          final current = nodesInLayer[i];
+          final next = nodesInLayer[i + 1];
+          final minY = current.y + current.height + configuration.nodeSeparation;
+
+          if (next.y < minY) {
+            next.y = minY;
+          }
         }
       }
     }

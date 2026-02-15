@@ -141,6 +141,7 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
     for (var metric in metrics) {
       final length = metric.length;
       const sampleDistance = 10.0; // Sample every 10 pixels
+      const epsilon = 0.001;
       var distance = 0.0;
 
       while (distance <= length) {
@@ -151,10 +152,15 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
         distance += sampleDistance;
       }
 
-      // Add the final point
-      final finalTangent = metric.getTangentForOffset(length);
-      if (finalTangent != null) {
-        points.add(finalTangent.position);
+      // Add the final point only if it was not already sampled.
+      final sampledDistance = distance - sampleDistance;
+      if (sampledDistance < length - epsilon) {
+        final finalTangent = metric.getTangentForOffset(length);
+        if (finalTangent != null &&
+            (points.isEmpty ||
+                (points.last - finalTangent.position).distance > epsilon)) {
+          points.add(finalTangent.position);
+        }
       }
     }
 

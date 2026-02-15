@@ -298,7 +298,7 @@ void main() {
       expect(sourceAnchor.dy, closeTo(125, 1.0)); // center height, no offset
     });
 
-    test('Two parallel edges are offset symmetrically', () {
+    test('Two parallel edges are offset by minEdgeDistance', () {
       final edge1 = Edge(sourceNode, destinationNode);
       final edge2 = Edge(sourceNode, destinationNode);
 

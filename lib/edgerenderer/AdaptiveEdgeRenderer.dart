@@ -119,13 +119,14 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
         ..color = edge.paint?.color ?? paint.color
         ..style = PaintingStyle.fill;
 
+      final arrowPoints = _resolveArrowPoints(path, sourcePoint, destPoint);
       drawTriangle(
         canvas,
         trianglePaint,
-        sourcePoint.dx,
-        sourcePoint.dy,
-        destPoint.dx,
-        destPoint.dy,
+        arrowPoints[0].dx,
+        arrowPoints[0].dy,
+        arrowPoints[1].dx,
+        arrowPoints[1].dy,
       );
     }
   }
@@ -618,11 +619,12 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
       return 0;
     }
 
-    // Find the index of this edge in the sorted list
-    // Sort by edge hashCode for consistent ordering
-    parallelEdges.sort((a, b) => a.hashCode.compareTo(b.hashCode));
-
-    final index = parallelEdges.indexOf(edge);
+    // Use graph insertion order for deterministic distribution and locate by identity.
+    // Do not rely on Edge.hashCode/== here because parallel edges may compare equal.
+    final index = parallelEdges.indexWhere((candidate) => identical(candidate, edge));
+    if (index == -1) {
+      return 0;
+    }
 
     // Return centered index: for N edges, indices are -(N-1)/2, ..., -1, 0, 1, ..., (N-1)/2
     // This centers the edges around the base anchor point
@@ -812,6 +814,36 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
   /// This should be called by the render system when starting a new frame.
   void resetRepulsionCalculation() {
     _repulsionCalculated = false;
+  }
+
+  /// Resolves arrow base and tip from the rendered path end tangent.
+  ///
+  /// Falls back to source/destination points when path tangent extraction fails.
+  List<Offset> _resolveArrowPoints(Path path, Offset sourcePoint, Offset destPoint) {
+    const arrowLength = 10.0;
+    final metrics = path.computeMetrics().toList();
+
+    for (var i = metrics.length - 1; i >= 0; i--) {
+      final metric = metrics[i];
+      if (metric.length < VectorUtils.epsilon) {
+        continue;
+      }
+
+      final arrowBaseOffset = max(0.0, metric.length - arrowLength);
+      final arrowBaseTangent = metric.getTangentForOffset(arrowBaseOffset);
+      final arrowTipTangent = metric.getTangentForOffset(metric.length);
+
+      if (arrowBaseTangent != null && arrowTipTangent != null) {
+        final arrowBase = arrowBaseTangent.position;
+        final arrowTip = arrowTipTangent.position;
+
+        if ((arrowTip - arrowBase).distance >= VectorUtils.epsilon) {
+          return [arrowBase, arrowTip];
+        }
+      }
+    }
+
+    return [sourcePoint, destPoint];
   }
 
   /// Draws a triangle (arrow head) at the end of an edge.

@@ -21,12 +21,16 @@ class OrientationUtils {
 
   /// Calculates the offset needed to position the graph based on orientation
   static Offset getOffset(Graph graph, int orientation) {
+    if (graph.nodes.isEmpty) {
+      return Offset.zero;
+    }
+
     var offsetX = double.infinity;
     var offsetY = double.infinity;
     final doesNeedReverseOrder = needReverseOrder(orientation);
 
     if (doesNeedReverseOrder) {
-      offsetY = double.minPositive;
+      offsetY = double.negativeInfinity;
     }
 
     graph.nodes.forEach((node) {

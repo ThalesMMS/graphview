@@ -72,6 +72,7 @@ class GraphView extends StatefulWidget {
 
 class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
   late TransformationController _transformationController;
+  late bool _ownsTransformationController;
   late final AnimationController _panController;
   late final AnimationController _nodeController;
   Animation<Matrix4>? _panAnimation;
@@ -80,6 +81,8 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
+    _ownsTransformationController =
+        widget.controller?.transformationController == null;
     _transformationController = widget.controller?.transformationController ??
         TransformationController();
 
@@ -113,7 +116,9 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
     widget.controller?._detach();
     _panController.dispose();
     _nodeController.dispose();
-    _transformationController.dispose();
+    if (_ownsTransformationController) {
+      _transformationController.dispose();
+    }
     super.dispose();
   }
 
@@ -210,6 +215,10 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
   }
 
   void animateToMatrix(Matrix4 target) {
+    if (_panAnimation != null) {
+      _panAnimation!.removeListener(_onPanTick);
+      _panAnimation = null;
+    }
     _panController.reset();
     _panAnimation = Matrix4Tween(
             begin: _transformationController.value, end: target)

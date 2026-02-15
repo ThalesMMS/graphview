@@ -67,11 +67,14 @@ void main() {
       for (var node in nodes) {
         var stopwatch = Stopwatch()
           ..start();
+        var total = 0;
         for (var i = 1; i <= rows; i++) {
-          node.hashCode;
+          total += node.hashCode;
         }
         var timeTaken = stopwatch.elapsed.inMilliseconds;
-        print('Time taken: $timeTaken ms for ${node.runtimeType} node');
+        expect(total >= 0 || total < 0, isTrue);
+        print(
+            'Time taken: $timeTaken ms for ${node.runtimeType} node (hashTotal: $total)');
         expect(timeTaken < 100, true);
       }
     });

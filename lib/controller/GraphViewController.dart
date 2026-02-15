@@ -37,7 +37,7 @@ class GraphViewController {
   bool isNodeHidden(Node node) => hiddenBy.containsKey(node);
 
   bool isNodeVisible(Graph graph, Node node) {
-    return !hiddenBy.containsKey(node);
+    return graph.nodes.contains(node) && !hiddenBy.containsKey(node);
   }
 
   Node? findClosestVisibleAncestor(Graph graph, Node node) {
@@ -95,6 +95,7 @@ class GraphViewController {
   }
 
   void collapseNode(Graph graph, Node node, {animate = false}) {
+    expandingNodes.clear();
     if (graph.hasSuccessor(node)) {
       collapsedNodes[node] = true;
       collapsedNode = node;
@@ -104,7 +105,6 @@ class GraphViewController {
       _markDescendantsHiddenBy(graph, node, node);
       forceRecalculation();
     }
-    expandingNodes.clear();
   }
 
   void toggleNodeExpanded(Graph graph, Node node, {animate = false}) {
@@ -147,14 +147,18 @@ class GraphViewController {
 
   void setInitiallyCollapsedByKeys(Graph graph, Set<ValueKey> keys) {
     for (final key in keys) {
-      try {
-        final node = graph.getNodeUsingKey(key);
-        collapsedNodes[node] = true;
-        // Mark descendants as hidden by this node
-        _markDescendantsHiddenBy(graph, node, node);
-      } catch (e) {
-        // Node with key not found, ignore
+      final node = graph.nodes.firstWhereOrNull((element) => element.key == key);
+      if (node == null) {
+        assert(() {
+          debugPrint(
+              'GraphViewController.setInitiallyCollapsedByKeys: node with key $key not found');
+          return true;
+        }());
+        continue;
       }
+      collapsedNodes[node] = true;
+      // Mark descendants as hidden by this node
+      _markDescendantsHiddenBy(graph, node, node);
     }
   }
 

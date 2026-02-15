@@ -19,6 +19,8 @@ class GraphViewWidget extends RenderObjectWidget {
 
   @override
   RenderCustomLayoutBox createRenderObject(BuildContext context) {
+    assert(context is GraphChildManager,
+        'GraphViewWidget must be used with GraphViewElement which implements GraphChildManager');
     return RenderCustomLayoutBox(
       delegate,
       paint,

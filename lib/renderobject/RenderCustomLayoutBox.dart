@@ -90,7 +90,7 @@ class RenderCustomLayoutBox extends RenderBox
   }
 
   void markNeedsRecalculation() {
-    _needsFullRecalculation = false;
+    _needsFullRecalculation = true;
     _isInitialized = false;
     markNeedsLayout();
   }

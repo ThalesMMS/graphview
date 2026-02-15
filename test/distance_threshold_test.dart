@@ -12,7 +12,7 @@ void main() {
       graph.addNode(node1);
       graph.addNode(node2);
 
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       // Set initial positions
       node1.position = const Offset(100, 100);
@@ -50,9 +50,32 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Get the render object
+      // Get the render object and verify initial dirty state
       final graphViewFinder = find.byType(GraphView);
       expect(graphViewFinder, findsOneWidget);
+      final renderBox =
+          tester.renderObject<RenderCustomLayoutBox>(find.byType(GraphViewWidget));
+      expect(renderBox.getDirtyEdges(), isEmpty);
+
+      // Start a drag interaction on node "1"
+      final nodeFinder = find.text('1');
+      expect(nodeFinder, findsOneWidget);
+      final gesture = await tester.startGesture(tester.getCenter(nodeFinder));
+
+      // First movement exceeds drag-start threshold and marks connected edges dirty
+      await gesture.moveBy(const Offset(6, 0));
+      final positionAfterLargeMove = node1.position;
+      expect(renderBox.getDirtyEdges(), isNotEmpty);
+
+      // Clear existing dirty edges, then apply sub-pixel movement
+      renderBox.dirtyEdges.clear();
+      await gesture.moveBy(const Offset(0.5, 0));
+
+      // Movement < 1px should not update node position or mark edges dirty
+      expect(node1.position, equals(positionAfterLargeMove));
+      expect(renderBox.getDirtyEdges(), isEmpty);
+
+      await gesture.up();
     });
 
     test('Movements of exactly 1px mark edges dirty', () {
@@ -62,7 +85,7 @@ void main() {
       graph.addNode(node1);
       graph.addNode(node2);
 
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       node1.position = const Offset(100, 100);
       node2.position = const Offset(200, 200);
@@ -81,7 +104,7 @@ void main() {
       graph.addNode(node1);
       graph.addNode(node2);
 
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       node1.position = const Offset(100, 100);
       node2.position = const Offset(200, 200);
@@ -133,8 +156,8 @@ void main() {
       graph.addNode(node2);
       graph.addNode(node3);
 
-      final edge1 = graph.addEdge(node1, node2);
-      final edge2 = graph.addEdge(node2, node3);
+      graph.addEdge(node1, node2);
+      graph.addEdge(node2, node3);
 
       node1.position = const Offset(100, 100);
       node2.position = const Offset(200, 100);
@@ -205,7 +228,7 @@ void main() {
       graph.addNode(node1);
       graph.addNode(node2);
 
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       node1.position = const Offset(100, 100);
       node2.position = const Offset(200, 200);

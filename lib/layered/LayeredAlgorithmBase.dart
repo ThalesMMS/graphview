@@ -86,15 +86,15 @@ abstract class LayeredAlgorithmBase extends Algorithm {
     var vertical = isVertical();
     for (var i = 0; i < k; i++) {
       var level = layers[i];
-      var maxHeight = 0;
+      var maxHeight = 0.0;
       level.forEach((node) {
         var h = nodeData[node]!.isDummy
-            ? 0
+            ? 0.0
             : vertical
                 ? node.height
                 : node.width;
         if (h > maxHeight) {
-          maxHeight = h.toInt();
+          maxHeight = h;
         }
         node.y = yPos;
       });

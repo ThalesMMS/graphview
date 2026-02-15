@@ -8,6 +8,7 @@ class GraphChildDelegate {
   final bool centerGraph;
   final NodeDraggingConfiguration? nodeDraggingConfig;
   Graph? _cachedVisibleGraph;
+  int? _cachedVisibleGraphGeneration;
   bool _needsRecalculation = true;
 
   GraphChildDelegate({
@@ -20,6 +21,11 @@ class GraphChildDelegate {
   });
 
   Graph getVisibleGraph() {
+    if (_cachedVisibleGraphGeneration != null &&
+        _cachedVisibleGraphGeneration != graph.generation) {
+      _needsRecalculation = true;
+    }
+
     if (_cachedVisibleGraph != null && !_needsRecalculation) {
       return _cachedVisibleGraph!;
     }
@@ -30,6 +36,7 @@ class GraphChildDelegate {
     visibleGraph.addEdges(collapsingEdges);
 
     _cachedVisibleGraph = visibleGraph;
+    _cachedVisibleGraphGeneration = graph.generation;
     _needsRecalculation = false;
     return visibleGraph;
   }
@@ -55,6 +62,7 @@ class GraphChildDelegate {
 
   bool shouldRebuild(GraphChildDelegate oldDelegate) {
     final result = graph != oldDelegate.graph ||
+        graph.generation != oldDelegate.graph.generation ||
         algorithm != oldDelegate.algorithm ||
         nodeDraggingConfig != oldDelegate.nodeDraggingConfig;
     if (result) _needsRecalculation = true;

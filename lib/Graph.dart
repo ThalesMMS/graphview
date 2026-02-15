@@ -108,6 +108,7 @@ class Graph {
     _edges.removeWhere(
         (edge) => edge.source == predecessor && edge.destination == current);
     _cacheValid = false;
+    _generation++;
   }
 
   // Called by algorithms after modifying node positions in-place
@@ -323,8 +324,22 @@ class Edge {
   Edge(this.source, this.destination, {this.key, this.paint, this.label, this.labelStyle, this.labelPosition, this.labelFollowsEdgeDirection, this.labelWidget, this.renderer});
 
   @override
-  bool operator ==(covariant Edge other) =>
-      identical(this, other) || hashCode == other.hashCode;
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! Edge) {
+      return false;
+    }
+
+    // If either edge has an explicit key, key identity defines equality.
+    if (key != null || other.key != null) {
+      return key == other.key;
+    }
+
+    // Otherwise, compare structural edge identity.
+    return source == other.source && destination == other.destination;
+  }
 
   @override
   int get hashCode => key?.hashCode ?? Object.hash(source, destination);
