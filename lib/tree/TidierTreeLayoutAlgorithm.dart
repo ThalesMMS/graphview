@@ -28,15 +28,11 @@ class TidierTreeLayoutAlgorithm extends Algorithm {
   }
 
   bool isVertical() {
-    var orientation = config.orientation;
-    return orientation == BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM ||
-        orientation == BuchheimWalkerConfiguration.ORIENTATION_BOTTOM_TOP;
+    return OrientationUtils.isVertical(config.orientation);
   }
 
   bool needReverseOrder() {
-    var orientation = config.orientation;
-    return orientation == BuchheimWalkerConfiguration.ORIENTATION_BOTTOM_TOP ||
-        orientation == BuchheimWalkerConfiguration.ORIENTATION_RIGHT_LEFT;
+    return OrientationUtils.needReverseOrder(config.orientation);
   }
 
   @override

@@ -1,3 +1,16 @@
+## 1.5.2
+
+- **IMPROVED**: Enhanced deprecation warnings with clearer migration guidance
+    - Updated deprecation messages for `Node()` constructor, `Node.data` field, and `getNodeAtUsingData()` method
+    - All deprecated APIs now point to recommended alternatives: `Node.Id()` constructor and `GraphView.builder()` pattern
+- **NEW**: Added comprehensive [MIGRATION.md](MIGRATION.md) guide
+    - Step-by-step migration instructions from deprecated to current API
+    - Before/after code examples for common use cases
+    - Timeline and FAQ for upgrading
+- **DEPRECATION TIMELINE**: Deprecated Node APIs will be removed in v2.0.0 (planned Q3 2026)
+    - See [MIGRATION.md](MIGRATION.md) for complete migration guide
+    - Update your code to use `Node.Id()` and `GraphView.builder()` pattern before upgrading to v2.0.0
+
 ## 1.5.1
 - Fix Zoom To fit for hidden nodes
 - Add Fade in Support for Edges

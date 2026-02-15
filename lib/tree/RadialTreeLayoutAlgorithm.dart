@@ -201,7 +201,7 @@ class RadialTreeLayoutAlgorithm extends Algorithm {
 
   void _putRadialPointsInModel(Graph graph) {
     final diameter = _calculateDiameter();
-    final center = diameter * 0.5 * 0.5;
+    final center = diameter * 0.5;
 
     polarLocations.forEach((node, polarPoint) {
       final cartesian = polarPoint.toCartesian();

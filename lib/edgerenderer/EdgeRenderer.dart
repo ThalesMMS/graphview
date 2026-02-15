@@ -2,12 +2,61 @@ part of graphview;
 
 abstract class EdgeRenderer {
   Map<Node, Offset>? _animatedPositions;
+  Graph? _graph;
 
   void setAnimatedPositions(Map<Node, Offset> positions) => _animatedPositions = positions;
+
+  void setGraph(Graph graph) => _graph = graph;
 
   Offset getNodePosition(Node node) => _animatedPositions?[node] ?? node.position;
 
   void renderEdge(Canvas canvas, Edge edge, Paint paint);
+
+  /// Calculates the optimal connection point on the source node's boundary.
+  /// Default implementation returns the center of the source node for backward compatibility.
+  /// Subclasses should override to implement different anchor modes (cardinal, octagonal, dynamic).
+  /// @param edge The edge being rendered
+  /// @param destinationCenter The center position of the destination node
+  /// @param edgeIndex The index of this edge among parallel edges (for distribution)
+  /// @return The connection point on the source node's boundary
+  Offset calculateSourceConnectionPoint(Edge edge, Offset destinationCenter, int edgeIndex) {
+    return getNodeCenter(edge.source);
+  }
+
+  /// Calculates the optimal connection point on the destination node's boundary.
+  /// Default implementation returns the center of the destination node for backward compatibility.
+  /// Subclasses should override to implement different anchor modes (cardinal, octagonal, dynamic).
+  /// @param edge The edge being rendered
+  /// @param sourceCenter The center position of the source node
+  /// @param edgeIndex The index of this edge among parallel edges (for distribution)
+  /// @return The connection point on the destination node's boundary
+  Offset calculateDestinationConnectionPoint(Edge edge, Offset sourceCenter, int edgeIndex) {
+    return getNodeCenter(edge.destination);
+  }
+
+  /// Routes the edge path between source and destination connection points.
+  /// Default implementation creates a direct straight line path for backward compatibility.
+  /// Subclasses should override to implement different routing algorithms (direct, orthogonal, bezier, spline).
+  /// @param sourcePoint The connection point on the source node
+  /// @param destinationPoint The connection point on the destination node
+  /// @param edge The edge being rendered
+  /// @return A Path representing the routed edge
+  Path routeEdgePath(Offset sourcePoint, Offset destinationPoint, Edge edge) {
+    return Path()
+      ..moveTo(sourcePoint.dx, sourcePoint.dy)
+      ..lineTo(destinationPoint.dx, destinationPoint.dy);
+  }
+
+  /// Applies edge-to-edge repulsion forces to separate overlapping edges.
+  /// Default implementation returns the original path without modification.
+  /// Subclasses can override to implement repulsion algorithms.
+  /// @param edges List of all edges in the graph
+  /// @param currentEdge The edge to apply repulsion to
+  /// @param path The original path of the current edge
+  /// @return A modified path with repulsion applied, or the original path if no repulsion needed
+  Path applyEdgeRepulsion(List<Edge> edges, Edge currentEdge, Path path) {
+    return path;
+  }
 
   Offset getNodeCenter(Node node) {
     final nodePosition = getNodePosition(node);
@@ -196,6 +245,51 @@ abstract class EdgeRenderer {
       arrowBaseTangent?.position ?? end,
       arrowTipTangent?.position ?? end,
     );
+  }
+
+  /// Renders a text label for an edge at the specified position and rotation
+  void renderEdgeLabel(
+    Canvas canvas,
+    Edge edge,
+    Offset labelPosition,
+    double? angle,
+  ) {
+    if (edge.label == null || edge.label!.isEmpty) {
+      return;
+    }
+
+    final textStyle = edge.labelStyle ??
+        const TextStyle(
+          color: Color(0xFF000000),
+          fontSize: 12.0,
+        );
+
+    final textSpan = TextSpan(
+      text: edge.label,
+      style: textStyle,
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    );
+
+    textPainter.layout();
+
+    canvas.save();
+
+    canvas.translate(labelPosition.dx, labelPosition.dy);
+
+    if (angle != null) {
+      canvas.rotate(angle);
+    }
+
+    textPainter.paint(
+      canvas,
+      Offset(-textPainter.width * 0.5, -textPainter.height * 0.5),
+    );
+
+    canvas.restore();
   }
 }
 

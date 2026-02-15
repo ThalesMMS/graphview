@@ -2,8 +2,13 @@ part of graphview;
 
 class Graph {
   final List<Node> _nodes = [];
+  final Set<Node> _nodeSet = {};
   final List<Edge> _edges = [];
   List<GraphObserver> graphObserver = [];
+
+  // Generation counter for tracking mutations
+  int _generation = 0;
+  int get generation => _generation;
 
   // Cache
   final Map<Node, List<Node>> _successorCache = {};
@@ -20,30 +25,34 @@ class Graph {
 
   void addNode(Node node) {
     _nodes.add(node);
+    _nodeSet.add(node);
     _cacheValid = false;
+    _generation++;
     notifyGraphObserver();
   }
 
   void addNodes(List<Node> nodes) => nodes.forEach((it) => addNode(it));
 
   void removeNode(Node? node) {
-    if (!_nodes.contains(node)) return;
+    if (!_nodeSet.contains(node)) return;
 
     if (isTree) {
       successorsOf(node).forEach((element) => removeNode(element));
     }
 
     _nodes.remove(node);
+    _nodeSet.remove(node);
     _edges
         .removeWhere((edge) => edge.source == node || edge.destination == node);
     _cacheValid = false;
+    _generation++;
     notifyGraphObserver();
   }
 
   void removeNodes(List<Node> nodes) => nodes.forEach((it) => removeNode(it));
 
-  Edge addEdge(Node source, Node destination, {Paint? paint}) {
-    final edge = Edge(source, destination, paint: paint);
+  Edge addEdge(Node source, Node destination, {Paint? paint, String? label, TextStyle? labelStyle, EdgeLabelPosition? labelPosition, bool? labelFollowsEdgeDirection, Widget? labelWidget, EdgeRenderer? renderer}) {
+    final edge = Edge(source, destination, paint: paint, label: label, labelStyle: labelStyle, labelPosition: labelPosition, labelFollowsEdgeDirection: labelFollowsEdgeDirection, labelWidget: labelWidget, renderer: renderer);
     addEdgeS(edge);
     return edge;
   }
@@ -51,23 +60,21 @@ class Graph {
   void addEdgeS(Edge edge) {
     var sourceSet = false;
     var destinationSet = false;
-    for (var node in _nodes) {
-      if (!sourceSet && node == edge.source) {
-        edge.source = node;
-        sourceSet = true;
-      }
 
-      if (!destinationSet && node == edge.destination) {
-        edge.destination = node;
-        destinationSet = true;
-      }
-
-      if (sourceSet && destinationSet) {
-        break;
-      }
+    // Use Set lookup for O(1) existence check
+    if (_nodeSet.contains(edge.source)) {
+      edge.source = _nodes.firstWhere((node) => node == edge.source);
+      sourceSet = true;
     }
+
+    if (_nodeSet.contains(edge.destination)) {
+      edge.destination = _nodes.firstWhere((node) => node == edge.destination);
+      destinationSet = true;
+    }
+
     if (!sourceSet) {
       _nodes.add(edge.source);
+      _nodeSet.add(edge.source);
       sourceSet = true;
       if (!destinationSet && edge.destination == edge.source) {
         destinationSet = true;
@@ -75,12 +82,14 @@ class Graph {
     }
     if (!destinationSet) {
       _nodes.add(edge.destination);
+      _nodeSet.add(edge.destination);
       destinationSet = true;
     }
 
     if (!_edges.contains(edge)) {
       _edges.add(edge);
       _cacheValid = false;
+      _generation++;
       notifyGraphObserver();
     }
   }
@@ -90,6 +99,7 @@ class Graph {
   void removeEdge(Edge edge) {
     _edges.remove(edge);
     _cacheValid = false;
+    _generation++;
   }
 
   void removeEdges(List<Edge> edges) => edges.forEach((it) => removeEdge(it));
@@ -98,6 +108,11 @@ class Graph {
     _edges.removeWhere(
         (edge) => edge.source == predecessor && edge.destination == current);
     _cacheValid = false;
+  }
+
+  // Called by algorithms after modifying node positions in-place
+  void markModified() {
+    _generation++;
   }
 
   bool hasNodes() => _nodes.isNotEmpty;
@@ -140,7 +155,7 @@ class Graph {
   }
 
   bool contains({Node? node, Edge? edge}) =>
-      node != null && _nodes.contains(node) ||
+      node != null && _nodeSet.contains(node) ||
       edge != null && _edges.contains(edge);
 
   bool containsData(data) => _nodes.any((element) => element.data == data);
@@ -158,7 +173,7 @@ class Graph {
     return _nodes[position];
   }
 
-  @Deprecated('Please use the builder and id mechanism to build the widgets')
+  @Deprecated('Use Node.Id(id) constructor and getNodeUsingId(id) instead. See MIGRATION.md for details.')
   Node getNodeAtUsingData(Widget data) =>
       _nodes.firstWhere((element) => element.data == data);
 
@@ -227,10 +242,10 @@ enum LineType {
 class Node {
   ValueKey? key;
 
-  @Deprecated('Please use the builder and id mechanism to build the widgets')
+  @Deprecated('Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
   Widget? data;
 
-  @Deprecated('Please use the Node.Id')
+  @Deprecated('Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
   Node(this.data, {Key? key}) {
     this.key = ValueKey(key?.hashCode ?? data.hashCode);
   }
@@ -244,6 +259,8 @@ class Node {
   Offset position = Offset(0, 0);
 
   LineType lineType = LineType.Default;
+
+  bool locked = false;
 
   double get height => size.height;
 
@@ -272,8 +289,18 @@ class Node {
 
   @override
   String toString() {
-    return 'Node{position: $position, key: $key, _size: $size, lineType: $lineType}';
+    return 'Node{position: $position, key: $key, _size: $size, lineType: $lineType, locked: $locked}';
   }
+}
+
+/// Position of label along edge path
+enum EdgeLabelPosition {
+  /// Label at start of edge (20% along path)
+  start,
+  /// Label at middle of edge (50% along path)
+  middle,
+  /// Label at end of edge (80% along path)
+  end,
 }
 
 class Edge {
@@ -283,11 +310,21 @@ class Edge {
   Key? key;
   Paint? paint;
 
-  Edge(this.source, this.destination, {this.key, this.paint});
+  // Label fields
+  String? label;
+  TextStyle? labelStyle;
+  EdgeLabelPosition? labelPosition;
+  bool? labelFollowsEdgeDirection;
+  Widget? labelWidget;
+
+  // Custom renderer
+  EdgeRenderer? renderer;
+
+  Edge(this.source, this.destination, {this.key, this.paint, this.label, this.labelStyle, this.labelPosition, this.labelFollowsEdgeDirection, this.labelWidget, this.renderer});
 
   @override
-  bool operator ==(Object? other) =>
-      identical(this, other) || other is Edge && hashCode == other.hashCode;
+  bool operator ==(covariant Edge other) =>
+      identical(this, other) || hashCode == other.hashCode;
 
   @override
   int get hashCode => key?.hashCode ?? Object.hash(source, destination);

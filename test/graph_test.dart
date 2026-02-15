@@ -53,7 +53,7 @@ void main() {
       var widgetNode2 = Node.Id(Text('Lovely'));
       var doubleNode = Node.Id(5.6);
 
-      var edge = graph.addEdge(integerNode, Node.Id(4));
+      graph.addEdge(integerNode, Node.Id(4));
 
       var nodes = [
         integerNode,
@@ -68,7 +68,7 @@ void main() {
         var stopwatch = Stopwatch()
           ..start();
         for (var i = 1; i <= rows; i++) {
-          var hash = node.hashCode;
+          node.hashCode;
         }
         var timeTaken = stopwatch.elapsed.inMilliseconds;
         print('Time taken: $timeTaken ms for ${node.runtimeType} node');

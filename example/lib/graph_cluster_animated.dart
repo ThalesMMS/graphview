@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:graphview/GraphView.dart';
 
 class GraphScreen extends StatefulWidget {
-  Graph graph;
-  FruchtermanReingoldAlgorithm algorithm;
+  final Graph graph;
+  final FruchtermanReingoldAlgorithm algorithm;
   final Paint? paint;
 
   GraphScreen(this.graph, this.algorithm, this.paint);

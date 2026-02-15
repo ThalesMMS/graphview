@@ -9,15 +9,11 @@ class BuchheimWalkerAlgorithm extends Algorithm {
   BuchheimWalkerConfiguration configuration;
 
   bool isVertical() {
-    var orientation = configuration.orientation;
-    return orientation == BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM ||
-        orientation == BuchheimWalkerConfiguration.ORIENTATION_BOTTOM_TOP;
+    return OrientationUtils.isVertical(configuration.orientation);
   }
 
   bool needReverseOrder() {
-    var orientation = configuration.orientation;
-    return orientation == BuchheimWalkerConfiguration.ORIENTATION_BOTTOM_TOP ||
-        orientation == BuchheimWalkerConfiguration.ORIENTATION_RIGHT_LEFT;
+    return OrientationUtils.needReverseOrder(configuration.orientation);
   }
 
   void _detectCycles(Graph graph) {
@@ -328,7 +324,7 @@ class BuchheimWalkerAlgorithm extends Algorithm {
   void positionNodes(Graph graph) {
     var doesNeedReverseOrder = needReverseOrder();
 
-    var offset = getOffset(graph, doesNeedReverseOrder);
+    var offset = OrientationUtils.getOffset(graph, configuration.orientation);
     var nodes = sortByLevel(graph, doesNeedReverseOrder);
     var firstLevel = getNodeData(nodes.first)?.depth ?? 0;
     var localMaxSize = findMaxSize(filterByLevel(nodes, firstLevel));
@@ -380,7 +376,7 @@ class BuchheimWalkerAlgorithm extends Algorithm {
           }
       }
 
-      node.position = getPosition(node, globalPadding, offset);
+      node.position = OrientationUtils.getPosition(node, offset, configuration.orientation, padding: globalPadding);
     });
   }
 
@@ -402,49 +398,6 @@ class BuchheimWalkerAlgorithm extends Algorithm {
     return Size(width, height);
   }
 
-  Offset getOffset(Graph graph, bool needReverseOrder) {
-    var offsetX = double.infinity;
-    var offsetY = double.infinity;
-
-    if (needReverseOrder) {
-      offsetY = double.minPositive;
-    }
-
-    graph.nodes.forEach((node) {
-      if (needReverseOrder) {
-        offsetX = min(offsetX, node.x);
-        offsetY = max(offsetY, node.y);
-      } else {
-        offsetX = min(offsetX, node.x);
-        offsetY = min(offsetY, node.y);
-      }
-    });
-
-    return Offset(offsetX, offsetY);
-  }
-
-  Offset getPosition(Node node, double globalPadding, Offset offset) {
-    Offset finalOffset;
-    switch (configuration.orientation) {
-      case 1:
-        finalOffset = Offset(node.x - offset.dx, node.y + globalPadding);
-        break;
-      case 2:
-        finalOffset = Offset(node.x - offset.dx, offset.dy - node.y - globalPadding);
-        break;
-      case 3:
-        finalOffset = Offset(node.y + globalPadding, node.x - offset.dx);
-        break;
-      case 4:
-        finalOffset = Offset(offset.dy - node.y - globalPadding, node.x - offset.dx);
-        break;
-      default:
-        finalOffset = Offset(0, 0);
-        break;
-    }
-
-    return finalOffset;
-  }
 
   List<Node> sortByLevel(Graph graph, bool descending) {
     var nodes = <Node>[...graph.nodes];

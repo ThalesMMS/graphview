@@ -61,6 +61,7 @@ class _GraphClusterViewPageState extends State<GraphClusterViewPage> {
 
   @override
   void initState() {
+    super.initState();
     final a = Node.Id(1);
     final b = Node.Id(2);
     final c = Node.Id(3);

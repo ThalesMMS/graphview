@@ -23,6 +23,39 @@ class TreeEdgeRenderer extends EdgeRenderer {
       final loopPath = buildSelfLoopPath(edge, arrowLength: 0.0);
       if (loopPath != null) {
         drawStyledPath(canvas, loopPath.path, edgePaint, lineType: child.lineType);
+
+        // Render label for self-loop edge
+        if (edge.label != null && edge.label!.isNotEmpty) {
+          final metrics = loopPath.path.computeMetrics().toList();
+          if (metrics.isNotEmpty) {
+            final metric = metrics.first;
+
+            // Calculate position based on labelPosition
+            final labelPos = edge.labelPosition ?? EdgeLabelPosition.middle;
+            double positionFactor;
+            if (labelPos == EdgeLabelPosition.start) {
+              positionFactor = 0.2;
+            } else if (labelPos == EdgeLabelPosition.end) {
+              positionFactor = 0.8;
+            } else {
+              positionFactor = 0.5; // middle (default)
+            }
+
+            final position = metric.length * positionFactor;
+            final tangent = metric.getTangentForOffset(position);
+            if (tangent != null) {
+              final rotationAngle = (edge.labelFollowsEdgeDirection ?? true)
+                ? tangent.angle
+                : null; // null means no rotation (horizontal)
+              renderEdgeLabel(
+                canvas,
+                edge,
+                tangent.position,
+                rotationAngle,
+              );
+            }
+          }
+        }
       }
       return;
     }
@@ -43,6 +76,39 @@ class TreeEdgeRenderer extends EdgeRenderer {
       _drawStyledPath(canvas, linePath, edgePaint, lineType);
     } else {
       canvas.drawPath(linePath, edgePaint);
+    }
+
+    // Render label for regular edge
+    if (edge.label != null && edge.label!.isNotEmpty) {
+      final metrics = linePath.computeMetrics().toList();
+      if (metrics.isNotEmpty) {
+        final metric = metrics.first;
+
+        // Calculate position based on labelPosition
+        final labelPos = edge.labelPosition ?? EdgeLabelPosition.middle;
+        double positionFactor;
+        if (labelPos == EdgeLabelPosition.start) {
+          positionFactor = 0.2;
+        } else if (labelPos == EdgeLabelPosition.end) {
+          positionFactor = 0.8;
+        } else {
+          positionFactor = 0.5; // middle (default)
+        }
+
+        final position = metric.length * positionFactor;
+        final tangent = metric.getTangentForOffset(position);
+        if (tangent != null) {
+          final rotationAngle = (edge.labelFollowsEdgeDirection ?? true)
+            ? tangent.angle
+            : null; // null means no rotation (horizontal)
+          renderEdgeLabel(
+            canvas,
+            edge,
+            tangent.position,
+            rotationAngle,
+          );
+        }
+      }
     }
   }
 

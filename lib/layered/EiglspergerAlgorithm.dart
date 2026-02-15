@@ -97,30 +97,6 @@ class Segment {
   String toString() => 'Segment($id)';
 }
 
-class EiglspergerNodeData {
-  bool isDummy = false;
-  bool isPVertex = false;
-  bool isQVertex = false;
-  Segment? segment;
-  int layer = -1;
-  int position = -1;
-  int rank = -1;
-  double measure = -1;
-  Set<Node> reversed = {};
-  List<Node> predecessorNodes = [];
-  List<Node> successorNodes = [];
-  LineType lineType;
-
-  EiglspergerNodeData(this.lineType);
-
-  bool get isSegmentVertex => isPVertex || isQVertex;
-  bool get isReversed => reversed.isNotEmpty;
-}
-
-class EiglspergerEdgeData {
-  List<double> bendPoints = [];
-}
-
 // Virtual edge for container connections
 class VirtualEdge {
   final dynamic source;
@@ -175,27 +151,30 @@ class EiglspergerAlgorithm extends Algorithm {
   var nodeCount = 1;
 
   EiglspergerAlgorithm(this.configuration) {
-    // renderer = SugiyamaEdgeRenderer(nodeData, edgeData, configuration.bendPointShape, configuration.addTriangleToEdge);
+    renderer = EiglspergerEdgeRenderer(nodeData, _edgeData,
+        configuration.bendPointShape, configuration.addTriangleToEdge);
   }
 
   int get dummyId => 'Dummy ${nodeCount++}'.hashCode;
 
   bool isVertical() {
-    var orientation = configuration.orientation;
-    return orientation == SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM ||
-        orientation == SugiyamaConfiguration.ORIENTATION_BOTTOM_TOP;
+    return OrientationUtils.isVertical(configuration.orientation);
   }
 
   bool needReverseOrder() {
-    var orientation = configuration.orientation;
-    return orientation == SugiyamaConfiguration.ORIENTATION_BOTTOM_TOP ||
-        orientation == SugiyamaConfiguration.ORIENTATION_RIGHT_LEFT;
+    return OrientationUtils.needReverseOrder(configuration.orientation);
   }
 
   @override
   Size run(Graph? graph, double shiftX, double shiftY) {
     this.graph = copyGraph(graph!);
     reset();
+
+    // Handle empty graph
+    if (this.graph.nodeCount() == 0) {
+      return Size.zero;
+    }
+
     initNodeData();
     cycleRemoval();
     layerAssignment();
@@ -446,14 +425,14 @@ class EiglspergerAlgorithm extends Algorithm {
 
       // Eiglsperger 6-step process
       stepOne(currentElements, true); // Handle P-vertices
-      stepTwo(currentElements, nextElements);
+      stepTwo(currentElements, nextElements, true); // true = forward sweep
       stepThree(nextElements);
       stepFour(nextElements, i + 1);
       totalCrossings += stepFive(currentElements, nextElements, i, i + 1);
       stepSix(nextElements);
 
       // Convert back to node layer
-      layers[i + 1] = extractNodes(nextElements);
+      layers[i + 1] = extractNodes(nextElements, i + 1);
     }
 
     return totalCrossings;
@@ -470,13 +449,13 @@ class EiglspergerAlgorithm extends Algorithm {
       var prevElements = createLayerElements(prevLayer);
 
       stepOne(currentElements, false); // Handle Q-vertices
-      stepTwo(currentElements, prevElements);
+      stepTwo(currentElements, prevElements, false); // false = backward sweep
       stepThree(prevElements);
       stepFour(prevElements, i - 1);
       totalCrossings += stepFive(currentElements, prevElements, i, i - 1);
       stepSix(prevElements);
 
-      layers[i - 1] = extractNodes(prevElements);
+      layers[i - 1] = extractNodes(prevElements, i - 1);
     }
 
     return totalCrossings;
@@ -486,18 +465,20 @@ class EiglspergerAlgorithm extends Algorithm {
     return layer.map((node) => NodeElement(node)).cast<LayerElement>().toList();
   }
 
-  List<Node> extractNodes(List<LayerElement> elements) {
+  List<Node> extractNodes(List<LayerElement> elements, int layerIndex) {
     var nodes = <Node>[];
     for (var element in elements) {
       if (element is NodeElement) {
         nodes.add(element.node);
       } else if (element is ContainerElement) {
-        // Extract nodes from segments in container
+        // Extract nodes from segments in container that belong to this layer
         for (var segment in element.container.segments) {
-          if (!nodes.contains(segment.pVertex)) {
+          // Check if pVertex belongs to this layer
+          if (nodeData[segment.pVertex]?.layer == layerIndex && !nodes.contains(segment.pVertex)) {
             nodes.add(segment.pVertex);
           }
-          if (!nodes.contains(segment.qVertex)) {
+          // Check if qVertex belongs to this layer
+          if (nodeData[segment.qVertex]?.layer == layerIndex && !nodes.contains(segment.qVertex)) {
             nodes.add(segment.qVertex);
           }
         }
@@ -544,7 +525,7 @@ class EiglspergerAlgorithm extends Algorithm {
   }
 
   // Eiglsperger Step 2: Compute position values and measures
-  void stepTwo(List<LayerElement> currentLayer, List<LayerElement> nextLayer) {
+  void stepTwo(List<LayerElement> currentLayer, List<LayerElement> nextLayer, bool isForward) {
     // Assign positions to current layer
     assignPositions(currentLayer);
 
@@ -552,17 +533,36 @@ class EiglspergerAlgorithm extends Algorithm {
     for (var element in nextLayer) {
       if (element is NodeElement) {
         var node = element.node;
-        var predecessors = predecessorsOf(node);
+        // Use predecessors for forward sweep, successors for backward sweep
+        var adjacentNodes = isForward ? predecessorsOf(node) : successorsOf(node);
 
-        if (predecessors.isNotEmpty) {
-          var positions = predecessors.map((p) => nodeData[p]?.position ?? 0).toList();
+        if (adjacentNodes.isNotEmpty) {
+          var positions = adjacentNodes.map((p) => nodeData[p]?.position ?? 0).toList();
           positions.sort();
           element.measure = medianValue(positions).toDouble();
         } else {
-          element.measure = element.pos.toDouble();
+          // If no adjacent nodes, use a default measure (0)
+          element.measure = 0.0;
         }
       } else if (element is ContainerElement) {
-        element.measure = element.pos.toDouble();
+        // For containers, compute measure based on their segments' endpoints
+        var segmentMeasures = <double>[];
+        for (var segment in element.container.segments) {
+          // Get the appropriate vertex based on sweep direction
+          var vertex = isForward ? segment.pVertex : segment.qVertex;
+          var adjNodes = isForward ? predecessorsOf(vertex) : successorsOf(vertex);
+          if (adjNodes.isNotEmpty) {
+            var positions = adjNodes.map((p) => nodeData[p]?.position ?? 0).toList();
+            if (positions.isNotEmpty) {
+              positions.sort();
+              segmentMeasures.add(medianValue(positions).toDouble());
+            }
+          }
+        }
+        // Use average of segment measures, or 0 if no measures
+        element.measure = segmentMeasures.isEmpty
+            ? 0.0
+            : segmentMeasures.reduce((a, b) => a + b) / segmentMeasures.length;
       }
     }
   }
@@ -601,6 +601,13 @@ class EiglspergerAlgorithm extends Algorithm {
     // Sort by measure
     vertices.sort((a, b) => a.measure.compareTo(b.measure));
     containers.sort((a, b) => a.measure.compareTo(b.measure));
+
+    // Assign initial positions to containers based on their sorted order
+    var containerPos = 0;
+    for (var container in containers) {
+      container.pos = containerPos;
+      containerPos += container.container.size();
+    }
 
     // Merge lists according to Eiglsperger algorithm
     var merged = mergeSortedLists(vertices, containers);
@@ -865,42 +872,26 @@ class EiglspergerAlgorithm extends Algorithm {
 
   void coordinateAssignment() {
     assignX();
+    // Resolve any node overlaps that may have occurred
+    resolveNodeOverlaps();
     assignY();
-    var offset = getOffset(graph, needReverseOrder());
+    var offset = OrientationUtils.getOffset(graph, configuration.orientation);
 
     graph.nodes.forEach((v) {
-      v.position = getPosition(v, offset);
+      v.position = OrientationUtils.getPosition(v, offset, configuration.orientation);
     });
   }
 
   void assignX() {
-    // Simplified coordinate assignment - can be enhanced with full Brandes-Köpf algorithm
-    var separation = configuration.nodeSeparation;
-    var vertical = isVertical();
-
-    for (var layerIndex = 0; layerIndex < layers.length; layerIndex++) {
-      var layer = layers[layerIndex];
-      var x = 0.0;
-
-      for (var nodeIndex = 0; nodeIndex < layer.length; nodeIndex++) {
-        var node = layer[nodeIndex];
-        var width = vertical ? node.width + separation : node.height;
-        node.x = x + width / 2;
-        x += width + separation;
-      }
-    }
-  }
-
-  void assignXx() {
-    // Existing implementation remains the same
+    // Brandes-Köpf coordinate assignment with type1Conflicts support
     final root = <Map<Node, Node>>[];
-    // each node points to its aligned neighbor in the layer below.;
+    // each node points to its aligned neighbor in the layer below.
     final align = <Map<Node, Node>>[];
     final sink = <Map<Node, Node>>[];
     final x = <Map<Node, double>>[];
-    // minimal separation between the roots of different classes.;
+    // minimal separation between the roots of different classes.
     final shift = <Map<Node, double>>[];
-    // the width of each block (max width of node in block);
+    // the width of each block (max width of node in block)
     final blockWidth = <Map<Node, double>>[];
 
     for (var i = 0; i < 4; i++) {
@@ -925,7 +916,7 @@ class EiglspergerAlgorithm extends Algorithm {
     var vertical = isVertical();
     for (var downward = 0; downward <= 1; downward++) {
       var isDownward = downward == 0;
-      final type1Conflicts = <int, int>{};
+      final type1Conflicts = markType1Conflicts(isDownward);
       for (var leftToRight = 0; leftToRight <= 1; leftToRight++) {
         final k = 2 * downward + leftToRight;
         var isLeftToRight = leftToRight == 0;
@@ -943,100 +934,94 @@ class EiglspergerAlgorithm extends Algorithm {
     balance(x, blockWidth);
   }
 
+  Map<int, int> markType1Conflicts(bool downward) {
+    final type1Conflicts = <int, int>{};
+    if (layers.length >= 4) {
+      int upper;
+      int lower; // iteration bounds
+      int k1; // node position boundaries of closest inner segments
+      if (downward) {
+        lower = 1;
+        upper = layers.length - 2;
+      } else {
+        lower = layers.length - 1;
+        upper = 2;
+      }
+      /*
+             * iterate level[2..h-2] in the given direction
+             * available 1 levels to h
+             */
+      for (var i = lower;
+          downward ? i <= upper : i >= upper;
+          i += downward ? 1 : -1) {
+        var k0 = 0;
+        var firstIndex = 0; // index of first node on layer
+        final currentLevel = layers[i];
+        final nextLevel = downward ? layers[i + 1] : layers[i - 1];
+
+        // for all nodes on next level
+        for (var l1 = 0; l1 < nextLevel.length; l1++) {
+          final virtualTwin = virtualTwinNode(nextLevel[l1], downward);
+
+          if (l1 == nextLevel.length - 1 || virtualTwin != null) {
+            k1 = currentLevel.length - 1;
+
+            if (virtualTwin != null) {
+              k1 = positionOfNode(virtualTwin);
+            }
+
+            while (firstIndex <= l1) {
+              final upperNeighbours = getAdjNodes(nextLevel[l1], downward);
+
+              for (var currentNeighbour in upperNeighbours) {
+                /*
+                *  XXX< 0 in first iteration is still ok for indizes starting
+                * with 0 because no index can be smaller than 0
+                 */
+                final currentNeighbourIndex = positionOfNode(currentNeighbour);
+
+                if (currentNeighbourIndex < k0 || currentNeighbourIndex > k1) {
+                  type1Conflicts[l1] = currentNeighbourIndex;
+                }
+              }
+              firstIndex++;
+            }
+
+            k0 = k1;
+          }
+        }
+      }
+    }
+    return type1Conflicts;
+  }
+
   void balance(List<Map<Node, double>> x, List<Map<Node?, double>> blockWidth) {
     final coordinates = <Node, double>{};
 
-    // switch (configuration.coordinateAssignment) {
-    //   case CoordinateAssignment.Average:
-    //     var minWidth = double.infinity;
-    //
-    //     var smallestWidthLayout = 0;
-    //     final minArray = List.filled(4, 0.0);
-    //     final maxArray = List.filled(4, 0.0);
-    //
-    //     // Get the layout with the smallest width and set minimum and maximum value for each direction;
-    //     for (var i = 0; i < 4; i++) {
-    //       minArray[i] = double.infinity;
-    //       maxArray[i] = 0;
-    //
-    //       graph.nodes.forEach((v) {
-    //         final bw = 0.5 * blockWidth[i][v]!;
-    //         var xp = x[i][v]! - bw;
-    //         if (xp < minArray[i]) {
-    //           minArray[i] = xp;
-    //         }
-    //         xp = x[i][v]! + bw;
-    //         if (xp > maxArray[i]) {
-    //           maxArray[i] = xp;
-    //         }
-    //       });
-    //
-    //       final width = maxArray[i] - minArray[i];
-    //       if (width < minWidth) {
-    //         minWidth = width;
-    //         smallestWidthLayout = i;
-    //       }
-    //     }
-    //
-    //     // Align the layouts to the one with the smallest width
-    //     for (var layout = 0; layout < 4; layout++) {
-    //       if (layout != smallestWidthLayout) {
-    //         // Align the left to right layouts to the left border of the smallest layout
-    //         var diff = 0.0;
-    //         if (layout < 2) {
-    //           diff = minArray[layout] - minArray[smallestWidthLayout];
-    //         } else {
-    //           // Align the right to left layouts to the right border of the smallest layout
-    //           diff = maxArray[layout] - maxArray[smallestWidthLayout];
-    //         }
-    //         if (diff > 0) {
-    //           x[layout].keys.forEach((n) {
-    //             x[layout][n] = x[layout][n]! - diff;
-    //           });
-    //         } else {
-    //           x[layout].keys.forEach((n) {
-    //             x[layout][n] = x[layout][n]! + diff;
-    //           });
-    //         }
-    //       }
-    //     }
-    //
-    //     // Get the average median of each coordinate
-    //     var values = List.filled(4, 0.0);
-    //     graph.nodes.forEach((n) {
-    //       for (var i = 0; i < 4; i++) {
-    //         values[i] = x[i][n]!;
-    //       }
-    //       values.sort();
-    //       var average = (values[1] + values[2]) * 0.5;
-    //       coordinates[n] = average;
-    //     });
-    //     break;
-    //   case CoordinateAssignment.DownRight:
-    //     graph.nodes.forEach((n) {
-    //       coordinates[n] = x[0][n] ?? 0.0;
-    //     });
-    //     break;
-    //   case CoordinateAssignment.DownLeft:
-    //     graph.nodes.forEach((n) {
-    //       coordinates[n] = x[1][n] ?? 0.0;
-    //     });
-    //     break;
-    //   case CoordinateAssignment.UpRight:
-    //     graph.nodes.forEach((n) {
-    //       coordinates[n] = x[2][n] ?? 0.0;
-    //     });
-    //     break;
-    //   case CoordinateAssignment.UpLeft:
-    //     graph.nodes.forEach((n) {
-    //       coordinates[n] = x[3][n] ?? 0.0;
-    //     });
-    //     break;
-    // }
-
     graph.nodes.forEach((n) {
-      coordinates[n] = x[3][n] ?? 0.0;
+      var xVal = x[3][n] ?? 0.0;
+      // Handle negative infinity case - use fallback from other passes
+      if (xVal == double.negativeInfinity || xVal.isNaN || xVal.isInfinite) {
+        for (var i = 0; i < 4; i++) {
+          var candidate = x[i][n] ?? double.negativeInfinity;
+          if (candidate != double.negativeInfinity && !candidate.isNaN && !candidate.isInfinite) {
+            xVal = candidate;
+            break;
+          }
+        }
+        // If still invalid, default to 0
+        if (xVal == double.negativeInfinity || xVal.isNaN || xVal.isInfinite) {
+          xVal = 0.0;
+        }
+      }
+      coordinates[n] = xVal;
     });
+
+    // Handle empty graph case
+    if (coordinates.isEmpty) {
+      return;
+    }
+
     // Get the minimum coordinate value
     var minValue = coordinates.values.reduce(min);
 
@@ -1047,118 +1032,45 @@ class EiglspergerAlgorithm extends Algorithm {
       });
     }
 
-    // resolveOverlaps(coordinates);
-
-
     graph.nodes.forEach((v) {
       v.x = coordinates[v]!;
     });
   }
 
-  void resolveOverlaps(Map<Node, double> coordinates) {
-    for (var layer in layers) {
-      var layerNodes = List<Node>.from(layer);
-      layerNodes.sort(
-              (a, b) => nodeData[a]!.position.compareTo(nodeData[b]!.position));
+  /// Resolves node overlaps within each layer by shifting nodes horizontally
+  void resolveNodeOverlaps() {
+    // Group nodes by layer
+    final nodesByLayer = <int, List<Node>>{};
+    for (var node in graph.nodes) {
+      final layer = nodeData[node]?.layer ?? -1;
+      if (layer >= 0) {
+        nodesByLayer.putIfAbsent(layer, () => []).add(node);
+      }
+    }
 
-      var data = nodeData[layerNodes.first];
-      if (data?.layer != 0) {
-        var leftCoordinate = 0.0;
-        for (var i = 1; i < layerNodes.length; i++) {
-          var currentNode = layerNodes[i];
-          if (!nodeData[currentNode]!.isDummy) {
-            var previousNode = getPreviousNonDummyNode(layerNodes, i);
+    // Resolve overlaps within each layer
+    for (var layer in nodesByLayer.keys) {
+      final nodesInLayer = nodesByLayer[layer]!;
 
-            if (previousNode != null) {
-              leftCoordinate = coordinates[previousNode]! +
-                  previousNode.width +
-                  configuration.nodeSeparation;
-            } else {
-              leftCoordinate = 0.0;
-            }
+      // Sort nodes by x-coordinate
+      nodesInLayer.sort((a, b) => a.x.compareTo(b.x));
 
-            if (leftCoordinate > coordinates[currentNode]!) {
-              var adjustment = leftCoordinate - coordinates[currentNode]!;
-              if (coordinates[currentNode] != null) {
-                coordinates[currentNode] =
-                    coordinates[currentNode]! + adjustment;
-              }
-            }
-          }
+      // Shift overlapping nodes
+      for (var i = 0; i < nodesInLayer.length - 1; i++) {
+        final current = nodesInLayer[i];
+        final next = nodesInLayer[i + 1];
+
+        // Calculate minimum required separation
+        final minX = current.x + current.width + configuration.nodeSeparation;
+
+        // If next node overlaps or is too close, shift it
+        if (next.x < minX) {
+          next.x = minX;
         }
       }
     }
   }
 
-  Node? getPreviousNonDummyNode(List<Node> layerNodes, int currentIndex) {
-    for (var i = currentIndex - 1; i >= 0; i--) {
-      var previousNode = layerNodes[i];
-      if (!nodeData[previousNode]!.isDummy) {
-        return previousNode;
-      }
-    }
-    return null;
-  }
-
-  // Map<int, int> markType1Conflicts(bool downward) {
-  //   if (layers.length >= 4) {
-  //     int upper;
-  //     int lower; // iteration bounds;
-  //     int k1; // node position boundaries of closest inner segments;
-  //     if (downward) {
-  //       lower = 1;
-  //       upper = layers.length - 2;
-  //     } else {
-  //       lower = layers.length - 1;
-  //       upper = 2;
-  //     }
-  //     /*;
-  //            * iterate level[2..h-2] in the given direction;
-  //            * available 1 levels to h;
-  //            */
-  //     for (var i = lower;
-  //     downward ? i <= upper : i >= upper;
-  //     i += downward ? 1 : -1) {
-  //       var k0 = 0;
-  //       var firstIndex = 0; // index of first node on layer;
-  //       final currentLevel = layers[i];
-  //       final nextLevel = downward ? layers[i + 1] : layers[i - 1];
-  //
-  //       // for all nodes on next level;
-  //       for (var l1 = 0; l1 < nextLevel.length; l1++) {
-  //         final virtualTwin = virtualTwinNode(nextLevel[l1], downward);
-  //
-  //         if (l1 == nextLevel.length - 1 || virtualTwin != null) {
-  //           k1 = currentLevel.length - 1;
-  //
-  //           if (virtualTwin != null) {
-  //             k1 = positionOfNode(virtualTwin);
-  //           }
-  //
-  //           while (firstIndex <= l1) {
-  //             final upperNeighbours = getAdjNodes(nextLevel[l1], downward);
-  //
-  //             for (var currentNeighbour in upperNeighbours) {
-  //               /*;
-  //               *  XXX< 0 in first iteration is still ok for indizes starting;
-  //               * with 0 because no index can be smaller than 0;
-  //                */
-  //               final currentNeighbourIndex = positionOfNode(currentNeighbour);
-  //
-  //               if (currentNeighbourIndex < k0 || currentNeighbourIndex > k1) {
-  //                 type1Conflicts[l1] = currentNeighbourIndex;
-  //               }
-  //             }
-  //             firstIndex++;
-  //           }
-  //
-  //           k0 = k1;
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return type1Conflicts;
-  // }
 
   void verticalAlignment(Map<Node?, Node?> root, Map<Node?, Node?> align,
       Map<int, int> type1Conflicts, bool downward, bool leftToRight) {
@@ -1448,7 +1360,10 @@ class EiglspergerAlgorithm extends Algorithm {
     graph.nodes.forEach((n) {
       if (nodeData[n]!.isReversed) {
         nodeData[n]!.reversed.forEach((target) {
-          final bendPoints = _edgeData[graph.getEdgeBetween(target, n)!]!.bendPoints;
+          final existingEdge = graph.getEdgeBetween(target, n);
+          final bendPoints = existingEdge != null && _edgeData[existingEdge] != null
+              ? _edgeData[existingEdge]!.bendPoints
+              : <double>[];
           graph.removeEdgeFromPredecessor(target, n);
           final edge = graph.addEdge(n, target);
 
@@ -1460,49 +1375,6 @@ class EiglspergerAlgorithm extends Algorithm {
     });
   }
 
-  Offset getOffset(Graph graph, bool needReverseOrder) {
-    var offsetX = double.infinity;
-    var offsetY = double.infinity;
-
-    if (needReverseOrder) {
-      offsetY = double.minPositive;
-    }
-
-    graph.nodes.forEach((node) {
-      if (needReverseOrder) {
-        offsetX = min(offsetX, node.x);
-        offsetY = max(offsetY, node.y);
-      } else {
-        offsetX = min(offsetX, node.x);
-        offsetY = min(offsetY, node.y);
-      }
-    });
-
-    return Offset(offsetX, offsetY);
-  }
-
-  Offset getPosition(Node node, Offset offset) {
-    Offset finalOffset;
-    switch (configuration.orientation) {
-      case 1:
-        finalOffset = Offset(node.x - offset.dx, node.y);
-        break;
-      case 2:
-        finalOffset = Offset(node.x - offset.dx, offset.dy - node.y);
-        break;
-      case 3:
-        finalOffset = Offset(node.y, node.x - offset.dx);
-        break;
-      case 4:
-        finalOffset = Offset(offset.dy - node.y, node.x - offset.dx);
-        break;
-      default:
-        finalOffset = Offset(0, 0);
-        break;
-    }
-
-    return finalOffset;
-  }
 
   static double medianValue(List<int> positions) {
     if (positions.isEmpty) return 0.0;
