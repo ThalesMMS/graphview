@@ -180,6 +180,13 @@ class RenderCustomLayoutBox extends RenderBox
     _pathCache.removeWhere((edge, _) => !currentEdges.contains(edge));
   }
 
+  void _flushDirtyEdgeCache() {
+    for (final edge in dirtyEdges) {
+      _pathCache.remove(edge);
+    }
+    dirtyEdges.clear();
+  }
+
   void _onAnimationTick() {
     markNeedsPaint();
   }
@@ -232,13 +239,7 @@ class RenderCustomLayoutBox extends RenderBox
         );
       }
 
-      // Invalidate cached paths for dirty edges before clearing
-      for (final edge in dirtyEdges) {
-        _pathCache.remove(edge);
-      }
-
-      // Clear dirty edges after rendering
-      dirtyEdges.clear();
+      _flushDirtyEdgeCache();
 
       context.canvas.restore();
 
@@ -254,13 +255,7 @@ class RenderCustomLayoutBox extends RenderBox
         );
       });
 
-      // Invalidate cached paths for dirty edges before clearing
-      for (final edge in dirtyEdges) {
-        _pathCache.remove(edge);
-      }
-
-      // Clear dirty edges after rendering
-      dirtyEdges.clear();
+      _flushDirtyEdgeCache();
 
       context.canvas.restore();
 
@@ -672,6 +667,16 @@ class RenderCustomLayoutBox extends RenderBox
       // Only update and mark dirty if movement exceeds threshold (skip sub-pixel updates)
       if (distanceMoved >= _movementThreshold) {
         draggedNode.position = newPosition;
+        if (enableAnimation) {
+          final draggedChild = _children[draggedNode];
+          if (draggedChild != null) {
+            final nodeData = draggedChild.parentData as NodeBoxData;
+            nodeData
+              ..startOffset = newPosition
+              ..targetOffset = newPosition
+              ..offset = newPosition;
+          }
+        }
 
         // Mark all edges connected to this node as dirty
         _markConnectedEdgesDirty(draggedNode);
