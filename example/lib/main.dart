@@ -8,10 +8,15 @@ import 'package:example/tree_graphview_json.dart';
 import 'package:flutter/material.dart';
 import 'package:graphview/GraphView.dart';
 
+import 'animated_edge_example.dart';
+import 'barnes_hut_demo.dart';
+import 'curved_edge_example.dart';
 import 'force_directed_graphview.dart';
 import 'graph_cluster_animated.dart';
 import 'layer_eiglesperger_graphview.dart';
 import 'layer_graphview_json.dart';
+import 'mixed_renderer_example.dart';
+import 'node_dragging_example.dart';
 import 'tree_graphview.dart';
 
 void main() {
@@ -131,6 +136,13 @@ class Home extends StatelessWidget {
               Colors.orange,
               () => GraphClusterViewPage(),
             ),
+            _buildButton(
+              'Barnes-Hut Demo',
+              'O(n log n) optimization for large graphs (500+ nodes)',
+              Icons.speed,
+              Colors.deepOrange,
+              () => BarnesHutDemoPage(),
+            ),
             _buildCustomGraphButton(
               'Square Grid',
               'Structured 3x3 layout',
@@ -160,6 +172,34 @@ class Home extends StatelessWidget {
               Icons.psychology,
               Colors.purple,
               () => MindMapPage(),
+            ),
+            _buildButton(
+              'Curved Edge Example',
+              'Adjustable curved edge rendering',
+              Icons.timeline,
+              Colors.blueAccent,
+              () => CurvedEdgeExamplePage(),
+            ),
+            _buildButton(
+              'Animated Edge Example',
+              'Animated flow indicators showing direction',
+              Icons.arrow_forward,
+              Colors.deepPurple,
+              () => AnimatedEdgeExamplePage(),
+            ),
+            _buildButton(
+              'Mixed Renderer Example',
+              'Per-edge renderer customization',
+              Icons.account_tree_outlined,
+              Colors.teal,
+              () => MixedRendererExamplePage(),
+            ),
+            _buildButton(
+              'Node Dragging Example',
+              'Interactive node positioning with drag gestures',
+              Icons.touch_app,
+              Colors.amber,
+              () => NodeDraggingExample(),
             ),
             _buildButton(
               'Layered View',

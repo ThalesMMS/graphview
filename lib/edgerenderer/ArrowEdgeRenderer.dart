@@ -6,8 +6,9 @@ const double ARROW_LENGTH = 10;
 class ArrowEdgeRenderer extends EdgeRenderer {
   var trianglePath = Path();
   final bool noArrow;
+  final EdgeRoutingConfig? config;
 
-  ArrowEdgeRenderer({this.noArrow = false});
+  ArrowEdgeRenderer({this.noArrow = false, this.config});
 
   Offset _getNodeCenter(Node node) {
     final nodePosition = getNodePosition(node);
@@ -15,6 +16,71 @@ class ArrowEdgeRenderer extends EdgeRenderer {
       nodePosition.dx + node.width * 0.5,
       nodePosition.dy + node.height * 0.5,
     );
+  }
+
+  /// Determines if adaptive anchors should be used based on configuration.
+  bool _shouldUseAdaptiveAnchors() {
+    return config != null && config!.anchorMode != AnchorMode.center;
+  }
+
+  @override
+  Offset calculateSourceConnectionPoint(Edge edge, Offset destinationCenter, int edgeIndex) {
+    // If no config or anchor mode is center, use center point
+    if (!_shouldUseAdaptiveAnchors()) {
+      return _getNodeCenter(edge.source);
+    }
+
+    // Use adaptive anchor calculation based on config
+    final sourceCenter = _getNodeCenter(edge.source);
+
+    Offset baseAnchor;
+    switch (config!.anchorMode) {
+      case AnchorMode.center:
+        baseAnchor = sourceCenter;
+        break;
+      case AnchorMode.cardinal:
+        baseAnchor = _calculateCardinalAnchor(edge.source, sourceCenter, destinationCenter);
+        break;
+      case AnchorMode.octagonal:
+        baseAnchor = _calculateOctagonalAnchor(edge.source, sourceCenter, destinationCenter);
+        break;
+      case AnchorMode.dynamic:
+        baseAnchor = _calculateDynamicAnchor(edge.source, sourceCenter, destinationCenter);
+        break;
+    }
+
+    // Apply perpendicular offset for parallel edges
+    return _applyParallelEdgeOffset(baseAnchor, sourceCenter, destinationCenter, edgeIndex);
+  }
+
+  @override
+  Offset calculateDestinationConnectionPoint(Edge edge, Offset sourceCenter, int edgeIndex) {
+    // If no config or anchor mode is center, use center point
+    if (!_shouldUseAdaptiveAnchors()) {
+      return _getNodeCenter(edge.destination);
+    }
+
+    // Use adaptive anchor calculation based on config
+    final destCenter = _getNodeCenter(edge.destination);
+
+    Offset baseAnchor;
+    switch (config!.anchorMode) {
+      case AnchorMode.center:
+        baseAnchor = destCenter;
+        break;
+      case AnchorMode.cardinal:
+        baseAnchor = _calculateCardinalAnchor(edge.destination, destCenter, sourceCenter);
+        break;
+      case AnchorMode.octagonal:
+        baseAnchor = _calculateOctagonalAnchor(edge.destination, destCenter, sourceCenter);
+        break;
+      case AnchorMode.dynamic:
+        baseAnchor = _calculateDynamicAnchor(edge.destination, destCenter, sourceCenter);
+        break;
+    }
+
+    // Apply perpendicular offset for parallel edges
+    return _applyParallelEdgeOffset(baseAnchor, destCenter, sourceCenter, edgeIndex);
   }
 
   void render(Canvas canvas, Graph graph, Paint paint) {
@@ -25,6 +91,12 @@ class ArrowEdgeRenderer extends EdgeRenderer {
 
   @override
   void renderEdge(Canvas canvas, Edge edge, Paint paint) {
+    // Check if edge has a custom renderer - if so, delegate to it
+    if (edge.renderer != null && edge.renderer != this) {
+      edge.renderer!.renderEdge(canvas, edge, paint);
+      return;
+    }
+
     var source = edge.source;
     var destination = edge.destination;
 
@@ -62,27 +134,81 @@ class ArrowEdgeRenderer extends EdgeRenderer {
           );
         }
 
+        // Render label for self-loop edge
+        if (edge.label != null && edge.label!.isNotEmpty) {
+          final metrics = loopResult.path.computeMetrics().toList();
+          if (metrics.isNotEmpty) {
+            final metric = metrics.first;
+
+            // Calculate position based on labelPosition
+            final labelPos = edge.labelPosition ?? EdgeLabelPosition.middle;
+            double positionFactor;
+            if (labelPos == EdgeLabelPosition.start) {
+              positionFactor = 0.2;
+            } else if (labelPos == EdgeLabelPosition.end) {
+              positionFactor = 0.8;
+            } else {
+              positionFactor = 0.5; // middle (default)
+            }
+
+            final position = metric.length * positionFactor;
+            final tangent = metric.getTangentForOffset(position);
+            if (tangent != null) {
+              final rotationAngle = (edge.labelFollowsEdgeDirection ?? true)
+                ? tangent.angle
+                : null; // null means no rotation (horizontal)
+              renderEdgeLabel(
+                canvas,
+                edge,
+                tangent.position,
+                rotationAngle,
+              );
+            }
+          }
+        }
+
         return;
       }
     }
 
-    var sourceOffset = getNodePosition(source);
-    var destinationOffset = getNodePosition(destination);
+    // Calculate connection points (adaptive or center-based)
+    double startX, startY, stopX, stopY;
 
-    var startX = sourceOffset.dx + source.width * 0.5;
-    var startY = sourceOffset.dy + source.height * 0.5;
-    var stopX = destinationOffset.dx + destination.width * 0.5;
-    var stopY = destinationOffset.dy + destination.height * 0.5;
+    if (_shouldUseAdaptiveAnchors()) {
+      // Use adaptive anchors when configured
+      final edgeIndex = _calculateEdgeIndex(edge);
+      final destCenter = _getNodeCenter(destination);
+      final sourceCenter = _getNodeCenter(source);
 
-    var clippedLine = clipLineEnd(
-        startX,
-        startY,
-        stopX,
-        stopY,
-        destinationOffset.dx,
-        destinationOffset.dy,
-        destination.width,
-        destination.height);
+      final sourcePoint = calculateSourceConnectionPoint(edge, destCenter, edgeIndex);
+      final destPoint = calculateDestinationConnectionPoint(edge, sourceCenter, edgeIndex);
+
+      startX = sourcePoint.dx;
+      startY = sourcePoint.dy;
+      stopX = destPoint.dx;
+      stopY = destPoint.dy;
+    } else {
+      // Use center points (default/backward compatible behavior)
+      var sourceOffset = getNodePosition(source);
+      var destinationOffset = getNodePosition(destination);
+
+      startX = sourceOffset.dx + source.width * 0.5;
+      startY = sourceOffset.dy + source.height * 0.5;
+      stopX = destinationOffset.dx + destination.width * 0.5;
+      stopY = destinationOffset.dy + destination.height * 0.5;
+    }
+
+    var clippedLine = _shouldUseAdaptiveAnchors()
+        ? [startX, startY, stopX, stopY]  // Adaptive anchors already on boundary
+        : clipLineEnd(
+            startX,
+            startY,
+            stopX,
+            stopY,
+            getNodePosition(destination).dx,
+            getNodePosition(destination).dy,
+            destination.width,
+            destination.height);
 
     if (noArrow) {
       // Draw line without arrow, respecting line type
@@ -122,6 +248,30 @@ class ArrowEdgeRenderer extends EdgeRenderer {
         currentPaint,
         lineType: lineType,
       );
+    }
+
+    // Render label for straight edge
+    if (edge.label != null && edge.label!.isNotEmpty) {
+      final labelPos = edge.labelPosition ?? EdgeLabelPosition.middle;
+      double positionFactor;
+      if (labelPos == EdgeLabelPosition.start) {
+        positionFactor = 0.2;
+      } else if (labelPos == EdgeLabelPosition.end) {
+        positionFactor = 0.8;
+      } else {
+        positionFactor = 0.5; // middle (default)
+      }
+
+      final labelPosition = Offset(
+        clippedLine[0] + (clippedLine[2] - clippedLine[0]) * positionFactor,
+        clippedLine[1] + (clippedLine[3] - clippedLine[1]) * positionFactor,
+      );
+      final angle = atan2(
+        clippedLine[3] - clippedLine[1],
+        clippedLine[2] - clippedLine[0],
+      );
+      final rotationAngle = (edge.labelFollowsEdgeDirection ?? true) ? angle : null;
+      renderEdgeLabel(canvas, edge, labelPosition, rotationAngle);
     }
   }
 
@@ -264,5 +414,207 @@ class ArrowEdgeRenderer extends EdgeRenderer {
     }
 
     return resultLine;
+  }
+
+  /// Calculates a cardinal anchor point (N, E, S, W) on the node boundary.
+  Offset _calculateCardinalAnchor(Node node, Offset nodeCenter, Offset targetCenter) {
+    final nodePosition = getNodePosition(node);
+    final direction = targetCenter - nodeCenter;
+    final angle = atan2(direction.dy, direction.dx);
+    final degrees = angle * 180 / pi;
+
+    if (degrees >= -45 && degrees < 45) {
+      // East - right edge
+      return Offset(
+        nodePosition.dx + node.width,
+        nodePosition.dy + node.height * 0.5,
+      );
+    } else if (degrees >= 45 && degrees < 135) {
+      // South - bottom edge
+      return Offset(
+        nodePosition.dx + node.width * 0.5,
+        nodePosition.dy + node.height,
+      );
+    } else if (degrees >= -135 && degrees < -45) {
+      // North - top edge
+      return Offset(
+        nodePosition.dx + node.width * 0.5,
+        nodePosition.dy,
+      );
+    } else {
+      // West - left edge
+      return Offset(
+        nodePosition.dx,
+        nodePosition.dy + node.height * 0.5,
+      );
+    }
+  }
+
+  /// Calculates an octagonal anchor point (8 compass points) on the node boundary.
+  Offset _calculateOctagonalAnchor(Node node, Offset nodeCenter, Offset targetCenter) {
+    final nodePosition = getNodePosition(node);
+    final direction = targetCenter - nodeCenter;
+    final angle = atan2(direction.dy, direction.dx);
+    final degrees = angle * 180 / pi;
+
+    if (degrees >= -22.5 && degrees < 22.5) {
+      // East
+      return Offset(
+        nodePosition.dx + node.width,
+        nodePosition.dy + node.height * 0.5,
+      );
+    } else if (degrees >= 22.5 && degrees < 67.5) {
+      // Southeast
+      return Offset(
+        nodePosition.dx + node.width,
+        nodePosition.dy + node.height,
+      );
+    } else if (degrees >= 67.5 && degrees < 112.5) {
+      // South
+      return Offset(
+        nodePosition.dx + node.width * 0.5,
+        nodePosition.dy + node.height,
+      );
+    } else if (degrees >= 112.5 && degrees < 157.5) {
+      // Southwest
+      return Offset(
+        nodePosition.dx,
+        nodePosition.dy + node.height,
+      );
+    } else if (degrees >= -157.5 && degrees < -112.5) {
+      // Northwest
+      return Offset(
+        nodePosition.dx,
+        nodePosition.dy,
+      );
+    } else if (degrees >= -112.5 && degrees < -67.5) {
+      // North
+      return Offset(
+        nodePosition.dx + node.width * 0.5,
+        nodePosition.dy,
+      );
+    } else if (degrees >= -67.5 && degrees < -22.5) {
+      // Northeast
+      return Offset(
+        nodePosition.dx + node.width,
+        nodePosition.dy,
+      );
+    } else {
+      // West
+      return Offset(
+        nodePosition.dx,
+        nodePosition.dy + node.height * 0.5,
+      );
+    }
+  }
+
+  /// Calculates a dynamic anchor point using exact ray-rectangle intersection.
+  Offset _calculateDynamicAnchor(Node node, Offset nodeCenter, Offset targetCenter) {
+    final nodePosition = getNodePosition(node);
+
+    // If nodes at same position, return center
+    if ((nodeCenter - targetCenter).distance < 1e-6) {
+      return nodeCenter;
+    }
+
+    final halfWidth = node.width * 0.5;
+    final halfHeight = node.height * 0.5;
+    final dx = targetCenter.dx - nodeCenter.dx;
+    final dy = targetCenter.dy - nodeCenter.dy;
+
+    // Handle vertical line
+    if (dx.abs() < 1e-6) {
+      if (dy > 0) {
+        return Offset(nodeCenter.dx, nodePosition.dy + node.height);
+      } else {
+        return Offset(nodeCenter.dx, nodePosition.dy);
+      }
+    }
+
+    final slope = dy / dx;
+
+    // Check vertical edge intersections
+    final halfSlopeWidth = slope * halfWidth;
+    if (halfSlopeWidth.abs() <= halfHeight) {
+      if (dx > 0) {
+        return Offset(
+          nodePosition.dx + node.width,
+          nodeCenter.dy + halfSlopeWidth,
+        );
+      } else {
+        return Offset(
+          nodePosition.dx,
+          nodeCenter.dy - halfSlopeWidth,
+        );
+      }
+    }
+
+    // Check horizontal edge intersections
+    if (slope != 0) {
+      final halfSlopeHeight = halfHeight / slope;
+      if (halfSlopeHeight.abs() <= halfWidth) {
+        if (dy > 0) {
+          return Offset(
+            nodeCenter.dx + halfSlopeHeight,
+            nodePosition.dy + node.height,
+          );
+        } else {
+          return Offset(
+            nodeCenter.dx - halfSlopeHeight,
+            nodePosition.dy,
+          );
+        }
+      }
+    }
+
+    return nodeCenter;
+  }
+
+  /// Calculates the index of this edge among parallel edges.
+  int _calculateEdgeIndex(Edge edge) {
+    if (_graph == null) {
+      return 0;
+    }
+
+    final outEdges = _graph!.getOutEdges(edge.source);
+    final parallelEdges = outEdges.where((e) => e.destination == edge.destination).toList();
+
+    if (parallelEdges.length <= 1) {
+      return 0;
+    }
+
+    // Keep graph insertion order for deterministic placement and locate by identity.
+    // Do not rely on Edge.hashCode/== because parallel edges may compare equal.
+    final index = parallelEdges.indexWhere((candidate) => identical(candidate, edge));
+    if (index == -1) {
+      return 0;
+    }
+    final centerOffset = (parallelEdges.length - 1) / 2;
+    return index - centerOffset.floor();
+  }
+
+  /// Applies perpendicular offset for parallel edge distribution.
+  Offset _applyParallelEdgeOffset(
+    Offset anchor,
+    Offset nodeCenter,
+    Offset targetCenter,
+    int edgeIndex,
+  ) {
+    if (edgeIndex == 0 || config == null) {
+      return anchor;
+    }
+
+    final direction = targetCenter - nodeCenter;
+    if (direction.distance < 1e-6) {
+      return anchor;
+    }
+
+    // Calculate perpendicular vector
+    final perpendicular = Offset(-direction.dy, direction.dx);
+    final length = perpendicular.distance;
+    final normalized = Offset(perpendicular.dx / length, perpendicular.dy / length);
+    final offset = normalized * (edgeIndex * config!.minEdgeDistance);
+
+    return anchor + offset;
   }
 }

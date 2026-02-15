@@ -26,6 +26,10 @@ Features
 - **Customizable Rendering**: Custom edge renderers, paint styling, and node builders
 - **Touch Interactions**: Pan, zoom, and tap handling with InteractiveViewer integration
 
+Migration
+=========
+If you're upgrading from an older version of GraphView, please refer to the [Migration Guide](MIGRATION.md) for information about API changes, deprecations, and how to update your code.
+
 Layouts
 ======
 ### Tree
@@ -413,6 +417,136 @@ Add an additional parameter paint. Applicable for ArrowEdgeRenderer for now.
 var a = Node();
 var b = Node();
  graph.addEdge(a, b, paint: Paint()..color = Colors.red);
+```
+
+### Custom Edge Renderers
+You can create custom edge renderers to implement unique edge visualization styles. GraphView provides a flexible `EdgeRenderer` base class with helper methods to simplify custom implementations.
+
+#### Creating a Custom Edge Renderer
+
+To create a custom edge renderer, extend the `EdgeRenderer` abstract class and implement the `renderEdge` method:
+
+```dart
+class MyCustomEdgeRenderer extends EdgeRenderer {
+  @override
+  void renderEdge(Canvas canvas, Edge edge, Paint paint) {
+    // Get the source and destination nodes
+    var source = edge.source;
+    var destination = edge.destination;
+
+    // Get node centers using the helper method
+    var sourceCenter = getNodeCenter(source);
+    var destinationCenter = getNodeCenter(destination);
+
+    // Use the edge's custom paint if provided, otherwise use the default
+    final edgePaint = edge.paint ?? paint;
+
+    // Draw your custom edge (example: simple line)
+    canvas.drawLine(sourceCenter, destinationCenter, edgePaint);
+  }
+}
+```
+
+#### Available Helper Methods
+
+The `EdgeRenderer` base class provides several helper methods to simplify custom implementations:
+
+- **`getNodeCenter(Node node)`** - Returns the center point of a node
+- **`getNodePosition(Node node)`** - Returns the top-left position of a node (handles animation)
+- **`drawStyledLine(Canvas canvas, Offset start, Offset end, Paint paint, {LineType? lineType})`** - Draws a line with support for dashed, dotted, or sine wave styles
+- **`drawStyledPath(Canvas canvas, Path path, Paint paint, {LineType? lineType})`** - Draws a path with styled line types
+- **`drawDashedLine(Canvas canvas, Offset source, Offset destination, Paint paint, double lineLength)`** - Draws a dashed line
+- **`drawSineLine(Canvas canvas, Offset source, Offset destination, Paint paint)`** - Draws a sine wave line
+- **`buildSelfLoopPath(Edge edge, {double loopPadding, double arrowLength})`** - Creates a path for self-referential edges (loops)
+- **`renderEdgeLabel(Canvas canvas, Edge edge, Offset labelPosition, double? angle)`** - Renders text labels on edges
+
+#### Example: Curved Edge Renderer
+
+Here's an example of a custom edge renderer that draws curved edges using quadratic bezier curves:
+
+```dart
+class CurvedEdgeRenderer extends EdgeRenderer {
+  final double curvature;
+
+  CurvedEdgeRenderer({this.curvature = 0.5});
+
+  @override
+  void renderEdge(Canvas canvas, Edge edge, Paint paint) {
+    var source = edge.source;
+    var destination = edge.destination;
+
+    final currentPaint = (edge.paint ?? paint)..style = PaintingStyle.stroke;
+
+    // Handle self-loop edges
+    if (source == destination) {
+      final loopResult = buildSelfLoopPath(edge, arrowLength: 0.0);
+      if (loopResult != null) {
+        canvas.drawPath(loopResult.path, currentPaint);
+        return;
+      }
+    }
+
+    // Get node centers
+    var sourceCenter = getNodeCenter(source);
+    var destinationCenter = getNodeCenter(destination);
+
+    // Calculate control point for bezier curve
+    final midX = (sourceCenter.dx + destinationCenter.dx) * 0.5;
+    final midY = (sourceCenter.dy + destinationCenter.dy) * 0.5;
+
+    final dx = destinationCenter.dx - sourceCenter.dx;
+    final dy = destinationCenter.dy - sourceCenter.dy;
+    final length = sqrt(dx * dx + dy * dy);
+
+    // Perpendicular offset for curve
+    final controlX = midX + (-dy / length) * length * curvature;
+    final controlY = midY + (dx / length) * length * curvature;
+
+    // Draw curved path
+    final path = Path()
+      ..moveTo(sourceCenter.dx, sourceCenter.dy)
+      ..quadraticBezierTo(controlX, controlY, destinationCenter.dx, destinationCenter.dy);
+
+    canvas.drawPath(path, currentPaint);
+  }
+}
+```
+
+#### Using a Custom Edge Renderer
+
+Pass your custom edge renderer to the algorithm:
+
+```dart
+// For algorithms that accept a renderer parameter
+var algorithm = FruchtermanReingoldAlgorithm(config);
+algorithm.renderer = MyCustomEdgeRenderer();
+
+// Or pass it directly to algorithms that support it
+var algorithm = BuchheimWalkerAlgorithm(
+  builder,
+  MyCustomEdgeRenderer(),
+);
+```
+
+#### Working Examples
+
+The GraphView package includes complete working examples of custom edge renderers:
+
+- **`CurvedEdgeRenderer`** (`example/lib/curved_edge_example.dart`) - Demonstrates curved edges using quadratic bezier curves with adjustable curvature
+- **`AnimatedEdgeRenderer`** (`example/lib/animated_edge_example.dart`) - Shows animated particle effects flowing along edges
+- **`MixedRendererExample`** (`example/lib/mixed_renderer_example.dart`) - Demonstrates using different renderers for different edge types
+
+These examples showcase advanced techniques including:
+- Animation integration with Flutter's `AnimationController`
+- Dynamic renderer updates based on user input
+- Handling self-loop edges
+- Edge label rendering along curved paths
+- Styled lines (dashed, dotted, sine wave)
+
+Run the example app to see these renderers in action:
+```bash
+cd example
+flutter run
 ```
 
 ### Add focused Node

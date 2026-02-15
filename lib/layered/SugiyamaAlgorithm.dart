@@ -1,37 +1,38 @@
 part of graphview;
 
-class SugiyamaAlgorithm extends Algorithm {
-  Map<Node, SugiyamaNodeData> nodeData = {};
-  Map<Edge, SugiyamaEdgeData> edgeData = {};
-  Set<Node> stack = {};
-  Set<Node> visited = {};
-  List<List<Node>> layers = [];
-  final type1Conflicts = <int, int>{};
-  late Graph graph;
-  SugiyamaConfiguration configuration;
+class SugiyamaAlgorithm
+    extends LayeredAlgorithmBase<SugiyamaNodeData, SugiyamaEdgeData> {
+  final Map<Node, SugiyamaNodeData> _nodeData = {};
+  final Map<Edge, SugiyamaEdgeData> _edgeData = {};
+  final SugiyamaConfiguration _configuration;
 
   @override
   EdgeRenderer? renderer;
 
-  var nodeCount = 1;
-
-  SugiyamaAlgorithm(this.configuration) {
-    renderer = SugiyamaEdgeRenderer(nodeData, edgeData,
-        configuration.bendPointShape, configuration.addTriangleToEdge);
+  SugiyamaAlgorithm(this._configuration) {
+    renderer = SugiyamaEdgeRenderer(_nodeData, _edgeData,
+        _configuration.bendPointShape, _configuration.addTriangleToEdge);
   }
 
-  int get dummyId => 'Dummy ${nodeCount++}'.hashCode;
+  @override
+  SugiyamaConfiguration get configuration => _configuration;
 
-  bool isVertical() {
-    var orientation = configuration.orientation;
-    return orientation == SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM ||
-        orientation == SugiyamaConfiguration.ORIENTATION_BOTTOM_TOP;
+  @override
+  Map<Node, SugiyamaNodeData> get nodeData => _nodeData;
+
+  @override
+  Map<Edge, SugiyamaEdgeData> get edgeData => _edgeData;
+
+  @override
+  SugiyamaEdgeData createEdgeDataWithBendPoints(List<double> bendPoints) {
+    final edgeData = SugiyamaEdgeData();
+    edgeData.bendPoints = bendPoints;
+    return edgeData;
   }
 
-  bool needReverseOrder() {
-    var orientation = configuration.orientation;
-    return orientation == SugiyamaConfiguration.ORIENTATION_BOTTOM_TOP ||
-        orientation == SugiyamaConfiguration.ORIENTATION_RIGHT_LEFT;
+  @override
+  List<double> getBendPointsFromEdgeData(SugiyamaEdgeData edgeData) {
+    return edgeData.bendPoints;
   }
 
   @override
@@ -43,24 +44,11 @@ class SugiyamaAlgorithm extends Algorithm {
     layerAssignment();
     nodeOrdering(); //expensive operation
     coordinateAssignment(); //expensive operation
-    // if (configuration.enableAngleOptimization) {
-    //   final optimizer = CrossingAngleOptimizer(this.graph, layers, nodeData, edgeData, configuration);
-    //   optimizer.optimize();
-    //   // The optimizer modifies the Y coordinates in place, so no need to call assignY() again.
-    // }
     shiftCoordinates(shiftX, shiftY);
     final graphSize = graph.calculateGraphSize();
     denormalize();
     restoreCycle();
     return graphSize;
-  }
-
-  void shiftCoordinates(double shiftX, double shiftY) {
-    layers.forEach((List<Node?> arrayList) {
-      arrayList.forEach((it) {
-        it!.position = Offset(it.x + shiftX, it.y + shiftY);
-      });
-    });
   }
 
   void reset() {
@@ -81,28 +69,6 @@ class SugiyamaAlgorithm extends Algorithm {
     graph.edges.forEach((edge) {
       edgeData[edge] = SugiyamaEdgeData();
     });
-
-  }
-
-  void dfs(Node node) {
-    if (visited.contains(node)) {
-      return;
-    }
-    visited.add(node);
-    stack.add(node);
-    graph.getOutEdges(node).toList().forEach((edge) {
-      final target = edge.destination;
-      if (stack.contains(target)) {
-        final storedData = edgeData.remove(edge);
-        graph.removeEdge(edge);
-        final reversedEdge = graph.addEdge(target, node);
-        edgeData[reversedEdge] = storedData ?? SugiyamaEdgeData();
-        nodeData[node]!.reversed.add(target);
-      } else {
-        dfs(target);
-      }
-    });
-    stack.remove(node);
   }
 
   void layerAssignment() {
@@ -295,6 +261,18 @@ class SugiyamaAlgorithm extends Algorithm {
       var currentLayer = layers[i];
       var nextLayer = layers[indexNextLayer];
 
+      // Calculate average layer height for dummy nodes
+      var vertical = isVertical();
+      var realNodes = nextLayer.where((n) => !nodeData[n]!.isDummy);
+      var avgHeight = 0.0;
+      if (realNodes.isNotEmpty) {
+        var totalHeight = 0.0;
+        realNodes.forEach((n) {
+          totalHeight += vertical ? n.height : n.width;
+        });
+        avgHeight = totalHeight / realNodes.length;
+      }
+
       for (var node in currentLayer) {
         final edges = graph.edges
             .where((element) =>
@@ -308,44 +286,23 @@ class SugiyamaAlgorithm extends Algorithm {
 
         while (iterator.moveNext()) {
           final edge = iterator.current;
-          final dummy = Node.Id(dummyId.hashCode);
+          final dummy = Node.Id(dummyId);
           final dummyNodeData = SugiyamaNodeData(node.lineType);
           dummyNodeData.isDummy = true;
           dummyNodeData.layer = indexNextLayer;
           nextLayer.add(dummy);
           nodeData[dummy] = dummyNodeData;
-          dummy.size =
-              Size(edge.source.width, 0); // calc TODO avg layer height;
+          dummy.size = vertical
+              ? Size(edge.source.width, avgHeight)
+              : Size(avgHeight, edge.source.height);
           final dummyEdge1 = graph.addEdge(edge.source, dummy);
           final dummyEdge2 = graph.addEdge(dummy, edge.destination);
           edgeData[dummyEdge1] = SugiyamaEdgeData();
           edgeData[dummyEdge2] = SugiyamaEdgeData();
           graph.removeEdge(edge);
-//                    iterator.remove();
         }
       }
     }
-  }
-
-  List<Node> getRootNodes(Graph graph) {
-    final predecessors = <Node, bool>{};
-    graph.edges.forEach((element) {
-      predecessors[element.destination] = true;
-    });
-
-    var roots = graph.nodes.where((node) => predecessors[node] == null);
-    roots.forEach((node) {
-      nodeData[node]?.layer = layers.length;
-    });
-
-    return roots.toList();
-  }
-
-  Graph copyGraph(Graph graph) {
-    final copy = Graph();
-    copy.addNodes(graph.nodes);
-    copy.addEdges(graph.edges);
-    return copy;
   }
 
   void nodeOrdering() {
@@ -619,7 +576,7 @@ class SugiyamaAlgorithm extends Algorithm {
   void coordinateAssignment() {
     assignX();
     assignY();
-    var offset = getOffset(graph, needReverseOrder());
+    var offset = getOffset(graph);
 
     graph.nodes.forEach((v) {
       v.position = getPosition(v, offset);
@@ -1058,8 +1015,11 @@ class SugiyamaAlgorithm extends Algorithm {
           }
           currentNode = align[currentNode]!;
         } while (currentNode != v);
-      } catch (e) {
-        print(e);
+      } catch (e, stackTrace) {
+        debugPrint(
+            'Error in placeBlock for root node $v while processing node $currentNode: $e');
+        debugPrint('$stackTrace');
+        rethrow;
       }
     }
   }
@@ -1114,107 +1074,6 @@ class SugiyamaAlgorithm extends Algorithm {
     return nodeData[v!]!.isDummy &&
         successors.length == 1 &&
         nodeData[successors[0]]!.isDummy;
-  }
-
-  void assignY() {
-    // compute y-coordinates;
-    final k = layers.length;
-
-    // assign y-coordinates
-    var yPos = 0.0;
-    var vertical = isVertical();
-    for (var i = 0; i < k; i++) {
-      var level = layers[i];
-      var maxHeight = 0;
-      level.forEach((node) {
-        var h = nodeData[node]!.isDummy
-            ? 0
-            : vertical
-                ? node.height
-                : node.width;
-        if (h > maxHeight) {
-          maxHeight = h.toInt();
-        }
-        node.y = yPos;
-      });
-
-      if (i < k - 1) {
-        yPos += configuration.levelSeparation + maxHeight;
-      }
-    }
-  }
-
-  void denormalize() {
-    // remove dummy's;
-    for (var i = 1; i < layers.length - 1; i++) {
-      final iterator = layers[i].iterator;
-
-      while (iterator.moveNext()) {
-        final current = iterator.current;
-        if (nodeData[current]!.isDummy) {
-          final predecessor = graph.predecessorsOf(current)[0];
-          final successor = graph.successorsOf(current)[0];
-          final bendPoints =
-              edgeData[graph.getEdgeBetween(predecessor, current)!]!.bendPoints;
-
-          if (bendPoints.isEmpty ||
-              !bendPoints.contains(current.x + predecessor.width / 2)) {
-            bendPoints.add(predecessor.x + predecessor.width / 2);
-            bendPoints.add(predecessor.y + predecessor.height / 2);
-            bendPoints.add(current.x + predecessor.width / 2);
-            bendPoints.add(current.y);
-          }
-          if (!nodeData[predecessor]!.isDummy) {
-            bendPoints.add(current.x + predecessor.width / 2);
-          } else {
-            bendPoints.add(current.x);
-          }
-          bendPoints.add(current.y);
-          if (nodeData[successor]!.isDummy) {
-            bendPoints.add(successor.x + predecessor.width / 2);
-          } else {
-            bendPoints.add(successor.x + successor.width / 2);
-          }
-          bendPoints.add(successor.y + successor.height / 2);
-          graph.removeEdgeFromPredecessor(predecessor, current);
-          graph.removeEdgeFromPredecessor(current, successor);
-
-          final edge = graph.addEdge(predecessor, successor);
-          final sugiyamaEdgeData = SugiyamaEdgeData();
-          sugiyamaEdgeData.bendPoints = bendPoints;
-          edgeData[edge] = sugiyamaEdgeData;
-
-//          iterator.remove();
-          graph.removeNode(current);
-        }
-      }
-    }
-  }
-
-  void restoreCycle() {
-    graph.nodes.forEach((n) {
-      final nodeInfo = nodeData[n];
-      if (nodeInfo == null || !nodeInfo.isReversed) {
-        return;
-      }
-
-      for (final target in nodeInfo.reversed.toList()) {
-        final existingEdge = graph.getEdgeBetween(target, n);
-        if (existingEdge == null) {
-          continue;
-        }
-        final existingData = this.edgeData.remove(existingEdge);
-        final bendPoints = existingData?.bendPoints ?? <double>[];
-        graph.removeEdgeFromPredecessor(target, n);
-        final edge = graph.addEdge(n, target);
-
-        final restoredData = existingData ?? SugiyamaEdgeData();
-        restoredData.bendPoints = bendPoints;
-        this.edgeData[edge] = restoredData;
-      }
-
-      nodeInfo.reversed.clear();
-    });
   }
 
   void cycleRemoval() {
@@ -1312,48 +1171,13 @@ class SugiyamaAlgorithm extends Algorithm {
     }
   }
 
-  Offset getOffset(Graph graph, bool needReverseOrder) {
-    var offsetX = double.infinity;
-    var offsetY = double.infinity;
-
-    if (needReverseOrder) {
-      offsetY = double.minPositive;
-    }
-
-    graph.nodes.forEach((node) {
-      if (needReverseOrder) {
-        offsetX = min(offsetX, node.x);
-        offsetY = max(offsetY, node.y);
-      } else {
-        offsetX = min(offsetX, node.x);
-        offsetY = min(offsetY, node.y);
-      }
-    });
-
-    return Offset(offsetX, offsetY);
+  Offset getOffset(Graph graph) {
+    return OrientationUtils.getOffset(graph, configuration.orientation);
   }
 
   Offset getPosition(Node node, Offset offset) {
-    Offset finalOffset;
-    switch (configuration.orientation) {
-      case 1:
-        finalOffset = Offset(node.x - offset.dx, node.y);
-        break;
-      case 2:
-        finalOffset = Offset(node.x - offset.dx, offset.dy - node.y);
-        break;
-      case 3:
-        finalOffset = Offset(node.y, node.x - offset.dx);
-        break;
-      case 4:
-        finalOffset = Offset(offset.dy - node.y, node.x - offset.dx);
-        break;
-      default:
-        finalOffset = Offset(0, 0);
-        break;
-    }
-
-    return finalOffset;
+    return OrientationUtils.getPosition(
+        node, offset, configuration.orientation);
   }
 
   @override
@@ -1365,17 +1189,13 @@ class SugiyamaAlgorithm extends Algorithm {
     layerAssignment();
     nodeOrdering(); //expensive operation
     coordinateAssignment(); //expensive operation
-    // shiftCoordinates(shiftX, shiftY);
-    //final graphSize = calculateGraphSize(this.graph);
     denormalize();
     restoreCycle();
-    // shiftCoordinates(graph, shiftX, shiftY);
   }
 
   @override
   void setDimensions(double width, double height) {
-    // graphWidth = width;
-    // graphHeight = height;
+    // Intentionally no-op: Sugiyama layout does not depend on viewport size.
   }
 }
 

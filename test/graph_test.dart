@@ -53,7 +53,7 @@ void main() {
       var widgetNode2 = Node.Id(Text('Lovely'));
       var doubleNode = Node.Id(5.6);
 
-      var edge = graph.addEdge(integerNode, Node.Id(4));
+      graph.addEdge(integerNode, Node.Id(4));
 
       var nodes = [
         integerNode,
@@ -65,13 +65,15 @@ void main() {
       ];
 
       for (var node in nodes) {
-        var stopwatch = Stopwatch()
-          ..start();
+        var stopwatch = Stopwatch()..start();
+        var total = 0;
         for (var i = 1; i <= rows; i++) {
-          var hash = node.hashCode;
+          total += node.hashCode;
         }
         var timeTaken = stopwatch.elapsed.inMilliseconds;
-        print('Time taken: $timeTaken ms for ${node.runtimeType} node');
+        expect(total >= 0 || total < 0, isTrue);
+        print(
+            'Time taken: $timeTaken ms for ${node.runtimeType} node (hashTotal: $total)');
         expect(timeTaken < 100, true);
       }
     });
@@ -85,6 +87,34 @@ void main() {
       expect(graph.nodes.length, 1);
       expect(graph.edges.length, 1);
       expect(graph.nodes.single, node);
+    });
+
+    test('Graph clear resets structure and keeps internal state consistent',
+        () {
+      final graph = Graph();
+      final node1 = Node.Id('A');
+      final node2 = Node.Id('B');
+
+      graph.addEdge(node1, node2);
+      expect(graph.nodeCount(), 2);
+      expect(graph.edges.length, 1);
+
+      graph.clear();
+      expect(graph.nodeCount(), 0);
+      expect(graph.edges, isEmpty);
+
+      // Graph should remain usable after clear.
+      graph.addEdge(Node.Id('A'), Node.Id('B'));
+      expect(graph.nodeCount(), 2);
+      expect(graph.edges.length, 1);
+    });
+
+    test('Graph nodes and edges views are unmodifiable', () {
+      final graph = Graph();
+      graph.addEdge(Node.Id('1'), Node.Id('2'));
+
+      expect(() => graph.nodes.clear(), throwsUnsupportedError);
+      expect(() => graph.edges.clear(), throwsUnsupportedError);
     });
 
     test('ArrowEdgeRenderer builds self-loop path', () {
@@ -119,8 +149,7 @@ void main() {
 
     test('SugiyamaAlgorithm handles single node self loop', () {
       final graph = Graph();
-      final node = Node.Id('self')
-        ..size = const Size(40, 40);
+      final node = Node.Id('self')..size = const Size(40, 40);
 
       graph.addEdge(node, node);
 

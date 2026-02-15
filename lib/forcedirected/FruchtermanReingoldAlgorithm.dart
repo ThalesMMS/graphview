@@ -1,5 +1,10 @@
 part of graphview;
 
+/// Fruchterman-Reingold force-directed graph layout algorithm.
+///
+/// Implements a spring-embedder layout where edges act as springs (attraction)
+/// and nodes repel each other. Supports optional Barnes-Hut optimization for
+/// O(n log n) repulsion calculations on large graphs.
 class FruchtermanReingoldAlgorithm implements Algorithm {
   static const double DEFAULT_TICK_FACTOR = 0.1;
   static const double CONVERGENCE_THRESHOLD = 1.0;
@@ -22,17 +27,30 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
 
   @override
   void init(Graph? graph) {
-    graph!.nodes.forEach((node) {
+    // Check if all nodes are at the same position (e.g., all at origin).
+    // Force-directed algorithms need distinct initial positions to compute
+    // meaningful direction vectors for repulsion forces.
+    final allSamePosition = graph!.nodes.length > 1 &&
+        graph.nodes.every((n) => n.position == graph.nodes.first.position);
+
+    var index = 0;
+    graph.nodes.forEach((node) {
       displacement[node] = Offset.zero;
-      nodeRects[node] = Rect.fromLTWH(node.x, node.y, node.width, node.height);
 
       if (configuration.shuffleNodes) {
         node.position = Offset(
             rand.nextDouble() * graphWidth, rand.nextDouble() * graphHeight);
-        // Update cached rect after position change
-        nodeRects[node] =
-            Rect.fromLTWH(node.x, node.y, node.width, node.height);
+      } else if (allSamePosition) {
+        // Spread nodes in a small circle around the center so the algorithm
+        // can compute non-zero direction vectors for repulsion
+        final angle = index * 2 * pi / graph.nodeCount();
+        node.position = Offset(
+            graphWidth / 2 + cos(angle) * 10.0,
+            graphHeight / 2 + sin(angle) * 10.0);
+        index++;
       }
+
+      nodeRects[node] = Rect.fromLTWH(node.x, node.y, node.width, node.height);
     });
   }
 
@@ -72,6 +90,13 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
     });
   }
 
+  /// Calculates attraction forces along edges.
+  ///
+  /// Connected nodes attract each other with a force proportional to their
+  /// distance squared divided by the optimal distance k. This implements
+  /// the spring force from the Fruchterman-Reingold model.
+  ///
+  /// Complexity: O(e) where e is the number of edges.
   void calculateAttraction(List<Edge> edges) {
     final attractionRate = configuration.attractionRate;
     final epsilon = configuration.epsilon;
@@ -95,6 +120,12 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
     }
   }
 
+  /// Calculates repulsion forces between all pairs of nodes (naive O(n²) approach).
+  ///
+  /// Each node repels every other node with a force that decreases with distance.
+  /// Uses rectangle-based distance calculation to account for node sizes.
+  ///
+  /// Complexity: O(n²) where n is the number of nodes.
   void calculateRepulsion(List<Node> nodes) {
     final repulsionRate = configuration.repulsionRate;
     final repulsionPercentage = configuration.repulsionPercentage;
@@ -124,7 +155,102 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
     }
   }
 
-  // Calculate closest distance vector between two node rectangles using cached rects
+  /// Calculates repulsion forces using the Barnes-Hut algorithm for optimization.
+  ///
+  /// Builds a quadtree spatial index and uses it to approximate distant node
+  /// clusters as single bodies. This reduces complexity from O(n²) to O(n log n)
+  /// while maintaining reasonable accuracy.
+  ///
+  /// The theta parameter controls the accuracy/speed tradeoff:
+  /// - Lower theta (0.3-0.5) = more accurate, slower
+  /// - Higher theta (0.7-1.0) = less accurate, faster
+  ///
+  /// Complexity: O(n log n) where n is the number of nodes.
+  void calculateRepulsionBarnesHut(List<Node> nodes) {
+    final repulsionRate = configuration.repulsionRate;
+    final repulsionPercentage = configuration.repulsionPercentage;
+    final epsilon = configuration.epsilon;
+    final theta = configuration.theta;
+    final maxRepulsionDistance = min(
+        graphWidth * repulsionPercentage, graphHeight * repulsionPercentage);
+
+    // Build quadtree with bounds covering the entire graph
+    final padding = max(graphWidth, graphHeight) * 0.1;
+    final bounds = Rect.fromLTWH(
+        -padding, -padding, graphWidth + 2 * padding, graphHeight + 2 * padding);
+    final quadtree = BarnesHutQuadtree(bounds);
+
+    // Insert all nodes into the quadtree
+    for (final node in nodes) {
+      quadtree.insert(node);
+    }
+
+    // Calculate repulsion forces for each node using the quadtree
+    for (final currentNode in nodes) {
+      _calculateForceFromQuadtree(
+          currentNode, quadtree, theta, repulsionRate, maxRepulsionDistance, epsilon);
+    }
+  }
+
+  /// Recursively calculates repulsion force from a quadtree node onto a graph node.
+  ///
+  /// This is the core of the Barnes-Hut algorithm. It decides whether to:
+  /// - Approximate the quadtree node as a single body (if far enough away), or
+  /// - Recurse into its children for more accurate calculation
+  ///
+  /// The decision is based on the Barnes-Hut criterion: (size / distance) < theta.
+  /// If the criterion is met, the entire quadtree node is treated as a single
+  /// point mass at its center of mass.
+  ///
+  /// Parameters:
+  /// - currentNode: The node to calculate force on
+  /// - quadtreeNode: The quadtree node being considered
+  /// - theta: Approximation threshold (lower = more accurate)
+  /// - repulsionRate: Strength multiplier for repulsion
+  /// - maxRepulsionDistance: Maximum distance for repulsion effects
+  /// - epsilon: Minimum distance to prevent division by zero
+  void _calculateForceFromQuadtree(Node currentNode, BarnesHutQuadtree quadtreeNode,
+      double theta, double repulsionRate, double maxRepulsionDistance, double epsilon) {
+    // Skip empty quadtree nodes
+    if (quadtreeNode.isEmpty) {
+      return;
+    }
+
+    // If this is a leaf node containing the current node itself, skip it
+    if (quadtreeNode.isLeaf && quadtreeNode.node == currentNode) {
+      return;
+    }
+
+    // Calculate distance from current node to quadtree node's center of mass
+    final delta = currentNode.position - quadtreeNode.centerOfMass;
+    final deltaDistance = max(epsilon, delta.distance);
+
+    // Barnes-Hut criterion: if (size / distance) < theta, approximate
+    final size = max(quadtreeNode.bounds.width, quadtreeNode.bounds.height);
+    if (quadtreeNode.isLeaf || (size / deltaDistance) < theta) {
+      // Treat this quadtree node as a single body
+      var repulsionForce = max(0, maxRepulsionDistance - deltaDistance) /
+          maxRepulsionDistance; //value between 0-1
+      var repulsionVector = delta * repulsionForce * repulsionRate * quadtreeNode.totalMass;
+
+      displacement[currentNode] = displacement[currentNode]! + repulsionVector;
+    } else {
+      // Recurse into children
+      _calculateForceFromQuadtree(
+          currentNode, quadtreeNode.northWest!, theta, repulsionRate, maxRepulsionDistance, epsilon);
+      _calculateForceFromQuadtree(
+          currentNode, quadtreeNode.northEast!, theta, repulsionRate, maxRepulsionDistance, epsilon);
+      _calculateForceFromQuadtree(
+          currentNode, quadtreeNode.southWest!, theta, repulsionRate, maxRepulsionDistance, epsilon);
+      _calculateForceFromQuadtree(
+          currentNode, quadtreeNode.southEast!, theta, repulsionRate, maxRepulsionDistance, epsilon);
+    }
+  }
+
+  /// Calculates the closest distance vector between two node rectangles.
+  ///
+  /// Uses cached rectangle bounds for performance. Handles overlapping nodes
+  /// by pushing them apart. Returns a vector pointing from nodeB to nodeA.
   Offset _getNodeRectDistance(Node nodeA, Node nodeB) {
     final rectA = nodeRects[nodeA]!;
     final rectB = nodeRects[nodeB]!;
@@ -134,9 +260,13 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
 
     if (rectA.overlaps(rectB)) {
       // Push overlapping nodes apart by at least half their combined size
+      final dxDiff = centerA.dx - centerB.dx;
+      final dyDiff = centerA.dy - centerB.dy;
+      // When centers are identical, .sign returns 0 which kills repulsion.
+      // Use 1.0 as default direction to break symmetry.
       final dx =
-          (centerA.dx - centerB.dx).sign * (rectA.width / 2 + rectB.width / 2);
-      final dy = (centerA.dy - centerB.dy).sign *
+          (dxDiff == 0 ? 1.0 : dxDiff.sign) * (rectA.width / 2 + rectB.width / 2);
+      final dy = (dyDiff == 0 ? 1.0 : dyDiff.sign) *
           (rectA.height / 2 + rectB.height / 2);
       return Offset(dx, dy);
     }
@@ -160,12 +290,16 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
 
   bool step(Graph graph) {
     var moved = false;
-    displacement = {};
+    displacement.clear();
     for (var node in graph.nodes) {
       displacement[node] = Offset.zero;
     }
 
-    calculateRepulsion(graph.nodes);
+    if (configuration.useBarnesHut) {
+      calculateRepulsionBarnesHut(graph.nodes);
+    } else {
+      calculateRepulsion(graph.nodes);
+    }
     calculateAttraction(graph.edges);
 
     for (var node in graph.nodes) {
@@ -176,14 +310,22 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
     }
 
     moveNodes(graph);
+    graph.markModified();
     return moved;
   }
 
   @override
   Size run(Graph? graph, double shiftX, double shiftY) {
-    if (graph == null) {
+    if (graph == null || graph.nodes.isEmpty) {
       return Size.zero;
     }
+
+    if (graph.nodes.length == 1) {
+      final node = graph.nodes.first;
+      node.position = Offset(shiftX, shiftY);
+      return Size(node.width, node.height);
+    }
+
     var size = findBiggestSize(graph) * graph.nodeCount();
     graphWidth = size;
     graphHeight = size;
@@ -193,12 +335,22 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
 
     tick = DEFAULT_TICK_FACTOR * sqrt(graphWidth / 2 * graphHeight / 2);
 
+    // Always initialize displacement and rect caches for all nodes
+    for (var node in graph.nodes) {
+      displacement[node] = Offset.zero;
+      nodeRects[node] = Rect.fromLTWH(node.x, node.y, node.width, node.height);
+    }
+
     if (graph.nodes.any((node) => node.position == Offset.zero)) {
       init(graph);
     }
 
     for (var i = 0; i < configuration.iterations; i++) {
-      calculateRepulsion(nodes);
+      if (configuration.useBarnesHut) {
+        calculateRepulsionBarnesHut(nodes);
+      } else {
+        calculateRepulsion(nodes);
+      }
       calculateAttraction(edges);
       limitMaximumDisplacement(nodes);
 
@@ -284,7 +436,8 @@ class FruchtermanReingoldAlgorithm implements Algorithm {
       }
     });
 
-    nodeClusters.removeWhere((element) => element.size() == 1);
+    nodeClusters.removeWhere((element) =>
+        element.size() == 1 && element != firstSingleNodeCluster);
   }
 
   void followEdges(

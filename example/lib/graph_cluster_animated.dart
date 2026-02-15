@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:graphview/GraphView.dart';
 
 class GraphScreen extends StatefulWidget {
-  Graph graph;
-  FruchtermanReingoldAlgorithm algorithm;
+  final Graph graph;
+  final FruchtermanReingoldAlgorithm algorithm;
   final Paint? paint;
 
   GraphScreen(this.graph, this.algorithm, this.paint);
@@ -33,12 +33,11 @@ class _GraphScreenState extends State<GraphScreen> {
                 var edge = widget.graph.getNodeAtPosition(r.nextInt(widget.graph.nodeCount()));
                 print(edge);
                 widget.graph.addEdge(edge, node12);
-                setState(() {});
               });
             },
           ),
           IconButton(
-            icon: Icon(Icons.animation),
+            icon: Icon(animated ? Icons.pause : Icons.play_arrow),
             onPressed: () async {
               setState(() {
                 animated = !animated;
@@ -55,6 +54,7 @@ class _GraphScreenState extends State<GraphScreen> {
           child: GraphViewCustomPainter(
             graph: widget.graph,
             algorithm: widget.algorithm,
+            animate: animated,
             builder: (Node node) {
               // I can decide what widget should be shown here based on the id
               var a = node.key!.value as String;
