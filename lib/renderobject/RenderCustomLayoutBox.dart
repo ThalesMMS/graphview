@@ -428,6 +428,8 @@ class RenderCustomLayoutBox extends RenderBox
   }
 
   void _updateAnimationStates() {
+    var shouldAnimate = false;
+
     for (final entry in _children.entries) {
       final node = entry.key;
       final child = entry.value;
@@ -436,13 +438,24 @@ class RenderCustomLayoutBox extends RenderBox
 
       if (isVisible) {
         _updateVisibleNodeAnimation(nodeData, node);
+        final isExpanding =
+            _delegate.controller?.isNodeExpanding(node) ?? false;
+        if (isExpanding || nodeData.startOffset != nodeData.targetOffset) {
+          shouldAnimate = true;
+        }
       } else {
         _updateCollapsedNodeAnimation(nodeData, node);
+        if (nodeData.startOffset != nodeData.targetOffset) {
+          shouldAnimate = true;
+        }
       }
     }
 
-    _nodeAnimationController.reset();
-    _nodeAnimationController.forward();
+    if (shouldAnimate) {
+      _nodeAnimationController
+        ..reset()
+        ..forward();
+    }
   }
 
   void _updateVisibleNodeAnimation(NodeBoxData nodeData, Node graphNode) {
@@ -563,7 +576,17 @@ class RenderCustomLayoutBox extends RenderBox
 
       if (!delegate.isNodeVisible(node)) continue;
 
-      final nodePosition = node.position;
+      final nodeData = child.parentData as NodeBoxData;
+      final nodePosition = enableAnimation
+          ? (animatedPositions[node] ??
+              Offset.lerp(
+                nodeData.startOffset,
+                nodeData.targetOffset,
+                _nodeAnimationController.value,
+              ) ??
+              nodeData.targetOffset ??
+              node.position)
+          : node.position;
       final nodeRect = Rect.fromLTWH(
         nodePosition.dx,
         nodePosition.dy,
