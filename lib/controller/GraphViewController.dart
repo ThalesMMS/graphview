@@ -37,7 +37,7 @@ class GraphViewController {
   bool isNodeHidden(Node node) => hiddenBy.containsKey(node);
 
   bool isNodeVisible(Graph graph, Node node) {
-    return graph.nodes.contains(node) && !hiddenBy.containsKey(node);
+    return graph.contains(node: node) && !hiddenBy.containsKey(node);
   }
 
   Node? findClosestVisibleAncestor(Graph graph, Node node) {

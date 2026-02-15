@@ -28,8 +28,7 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
   }
 
   void _buildGraph() {
-    graph.nodes.clear();
-    graph.edges.clear();
+    graph.clear();
 
     // Create nodes
     final nodes = List.generate(nodeCount, (i) => Node.Id(i + 1));

@@ -149,12 +149,21 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
               ? getBendPointsFromEdgeData(existingEdgeData)
               : <double>[];
 
-          if (bendPoints.isEmpty ||
-              !bendPoints.contains(current.x + predecessor.width / 2)) {
+          final targetX = current.x + predecessor.width / 2;
+          final targetY = current.y;
+          var hasTargetPair = false;
+          for (var i = 0; i + 1 < bendPoints.length; i += 2) {
+            if (bendPoints[i] == targetX && bendPoints[i + 1] == targetY) {
+              hasTargetPair = true;
+              break;
+            }
+          }
+
+          if (!hasTargetPair) {
             bendPoints.add(predecessor.x + predecessor.width / 2);
             bendPoints.add(predecessor.y + predecessor.height / 2);
-            bendPoints.add(current.x + predecessor.width / 2);
-            bendPoints.add(current.y);
+            bendPoints.add(targetX);
+            bendPoints.add(targetY);
           }
 
           if (!nodeData[predecessor]!.isDummy) {
@@ -170,6 +179,14 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
             bendPoints.add(successor.x + successor.width / 2);
           }
           bendPoints.add(successor.y + successor.height / 2);
+
+          final successorEdgeId = graph.getEdgeBetween(current, successor);
+          if (edgeId != null) {
+            edgeData.remove(edgeId);
+          }
+          if (successorEdgeId != null) {
+            edgeData.remove(successorEdgeId);
+          }
 
           graph.removeEdgeFromPredecessor(predecessor, current);
           graph.removeEdgeFromPredecessor(current, successor);

@@ -452,6 +452,7 @@ class RenderCustomLayoutBox extends RenderBox
     final prevTarget = nodeData.targetOffset;
 
     if (nodeData.startOffset == nodeData.targetOffset) {
+      nodeData.startOffset = graphNode.position;
       nodeData.targetOffset = parentPos;
     } else if (prevTarget != null && prevTarget != parentPos) {
       // Just collapsed now → animate toward parent

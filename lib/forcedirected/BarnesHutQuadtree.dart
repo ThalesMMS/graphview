@@ -205,7 +205,9 @@ class BarnesHutQuadtree {
     if (isLeaf) {
       // Leaf node: mass and center come directly from the stored node
       if (node != null) {
-        totalMass = 1.0;
+        if (totalMass == 0.0) {
+          totalMass = 1.0;
+        }
         centerOfMass = node!.position;
       } else {
         totalMass = 0.0;

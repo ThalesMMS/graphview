@@ -16,9 +16,9 @@ class Graph {
   final Map<Node, List<Node>> _predecessorCache = {};
   bool _cacheValid = false;
 
-  List<Node> get nodes => _nodes;
+  UnmodifiableListView<Node> get nodes => UnmodifiableListView(_nodes);
 
-  List<Edge> get edges => _edges;
+  UnmodifiableListView<Edge> get edges => UnmodifiableListView(_edges);
 
   var isTree = false;
 
@@ -53,6 +53,18 @@ class Graph {
   }
 
   void removeNodes(List<Node> nodes) => nodes.forEach((it) => removeNode(it));
+
+  void clear() {
+    _nodes.clear();
+    _nodeSet.clear();
+    _canonicalNodes.clear();
+    _edges.clear();
+    _successorCache.clear();
+    _predecessorCache.clear();
+    _cacheValid = false;
+    _generation++;
+    notifyGraphObserver();
+  }
 
   /// Adds an edge between [source] and [destination].
   ///

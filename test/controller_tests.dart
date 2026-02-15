@@ -82,7 +82,7 @@ void main() {
         (WidgetTester tester) async {
       final graph = Graph();
       final node = Node.Id('exists');
-      graph.nodes.add(node);
+      graph.addNode(node);
 
       final transformationController = TransformationController();
       final controller = GraphViewController(

@@ -81,7 +81,20 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
       Canvas canvas, Edge edge, Paint currentPaint, Paint trianglePaint) {
     final source = edge.source;
     final destination = edge.destination;
-    var bendPoints = edgeData[edge]!.bendPoints;
+    final rawBendPoints = edgeData[edge]?.bendPoints;
+    if (rawBendPoints == null || rawBendPoints.length < 2) {
+      _renderStraightEdge(canvas, edge, currentPaint, trianglePaint);
+      return;
+    }
+
+    final bendPoints = rawBendPoints.length.isEven
+        ? rawBendPoints
+        : rawBendPoints.sublist(0, rawBendPoints.length - 1);
+    if (bendPoints.length < 2) {
+      _renderStraightEdge(canvas, edge, currentPaint, trianglePaint);
+      return;
+    }
+
     final path = Path();
 
     var sourceCenter = _getNodeCenter(source);
@@ -169,7 +182,8 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
     } else {
       path.lineTo(stopX, stopY);
     }
-    canvas.drawPath(path, currentPaint);
+    final lineType = nodeData[destination]?.lineType;
+    drawStyledPath(canvas, path, currentPaint, lineType: lineType);
   }
 
   void _renderStraightEdge(

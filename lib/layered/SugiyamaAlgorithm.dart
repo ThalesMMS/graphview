@@ -576,7 +576,7 @@ class SugiyamaAlgorithm
   void coordinateAssignment() {
     assignX();
     assignY();
-    var offset = getOffset(graph, needReverseOrder());
+    var offset = getOffset(graph);
 
     graph.nodes.forEach((v) {
       v.position = getPosition(v, offset);
@@ -1019,6 +1019,7 @@ class SugiyamaAlgorithm
         debugPrint(
             'Error in placeBlock for root node $v while processing node $currentNode: $e');
         debugPrint('$stackTrace');
+        rethrow;
       }
     }
   }
@@ -1170,7 +1171,7 @@ class SugiyamaAlgorithm
     }
   }
 
-  Offset getOffset(Graph graph, bool needReverseOrder) {
+  Offset getOffset(Graph graph) {
     return OrientationUtils.getOffset(graph, configuration.orientation);
   }
 
@@ -1193,7 +1194,9 @@ class SugiyamaAlgorithm
   }
 
   @override
-  void setDimensions(double width, double height) {}
+  void setDimensions(double width, double height) {
+    // Intentionally no-op: Sugiyama layout does not depend on viewport size.
+  }
 }
 
 class AccumulatorTree {
