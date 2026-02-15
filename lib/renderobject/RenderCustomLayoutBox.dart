@@ -10,6 +10,7 @@ class RenderCustomLayoutBox extends RenderBox
   final GraphChildManager childManager;
 
   Size? _cachedSize;
+  BoxConstraints? _lastConstraints;
   bool _isInitialized = false;
   bool _needsFullRecalculation = false;
   late bool enableAnimation;
@@ -278,6 +279,11 @@ class RenderCustomLayoutBox extends RenderBox
   void performLayout() {
     _activeChildrenForLayoutPass.clear();
     childManager.startLayout();
+
+    if (_lastConstraints != constraints) {
+      _needsFullRecalculation = true;
+    }
+    _lastConstraints = constraints;
 
     final looseConstraints = BoxConstraints.loose(constraints.biggest);
 
