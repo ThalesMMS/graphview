@@ -14,6 +14,7 @@ class RenderCustomLayoutBox extends RenderBox
   bool _isInitialized = false;
   bool _needsFullRecalculation = false;
   late bool enableAnimation;
+  late double _saveLayerPadding;
   final opacityPaint = Paint();
 
   final animatedPositions = <Node, Offset>{};
@@ -44,6 +45,7 @@ class RenderCustomLayoutBox extends RenderBox
     GraphChildDelegate delegate,
     Paint? paint,
     bool enableAnimation, {
+    double saveLayerPadding = 20.0,
     required AnimationController nodeAnimationController,
     required this.childManager,
   }) {
@@ -51,6 +53,7 @@ class RenderCustomLayoutBox extends RenderBox
     _delegate = delegate;
     edgePaint = paint;
     this.enableAnimation = enableAnimation;
+    _saveLayerPadding = saveLayerPadding.clamp(0.0, double.infinity).toDouble();
   }
 
   RenderBox? buildOrObtainChildFor(Node node) {
@@ -82,12 +85,10 @@ class RenderCustomLayoutBox extends RenderBox
   Algorithm get algorithm => _delegate.algorithm;
 
   set delegate(GraphChildDelegate value) {
-    // if (value != _delegate) {
     _needsFullRecalculation = true;
     _isInitialized = false;
     _delegate = value;
     markNeedsLayout();
-    // }
   }
 
   void markNeedsRecalculation() {
@@ -152,6 +153,15 @@ class RenderCustomLayoutBox extends RenderBox
     _nodeDraggingConfiguration = value;
   }
 
+  double get saveLayerPadding => _saveLayerPadding;
+
+  set saveLayerPadding(double value) {
+    final next = value.clamp(0.0, double.infinity).toDouble();
+    if (_saveLayerPadding == next) return;
+    _saveLayerPadding = next;
+    markNeedsPaint();
+  }
+
   /// Returns a copy of the dirty edges set for read-only access.
   Set<Edge> getDirtyEdges() => Set<Edge>.from(dirtyEdges);
 
@@ -204,7 +214,10 @@ class RenderCustomLayoutBox extends RenderBox
         final child = entry.value;
         final nodeData = child.parentData as NodeBoxData;
         final pos =
-            Offset.lerp(nodeData.startOffset, nodeData.targetOffset, t)!;
+            Offset.lerp(nodeData.startOffset, nodeData.targetOffset, t) ??
+                nodeData.targetOffset ??
+                nodeData.startOffset ??
+                node.position;
         animatedPositions[node] = pos;
       }
 
@@ -340,6 +353,7 @@ class RenderCustomLayoutBox extends RenderBox
 
   void _paintExpandingNode(PaintingContext context, RenderBox child,
       Offset offset, Offset pos, double t) {
+    final padding = _saveLayerPadding;
     final center =
         pos + offset + Offset(child.size.width * 0.5, child.size.height * 0.5);
 
@@ -357,8 +371,11 @@ class RenderCustomLayoutBox extends RenderBox
           Colors.white.withValues(alpha: t), BlendMode.modulate);
 
     context.canvas.saveLayer(
-        Rect.fromLTWH(pos.dx + offset.dx - 20, pos.dy + offset.dy - 20,
-            child.size.width + 40, child.size.height + 40),
+        Rect.fromLTWH(
+            pos.dx + offset.dx - padding,
+            pos.dy + offset.dy - padding,
+            child.size.width + (padding * 2),
+            child.size.height + (padding * 2)),
         opacityPaint);
 
     context.paintChild(child, offset + pos);
@@ -369,6 +386,7 @@ class RenderCustomLayoutBox extends RenderBox
 
   void _paintCollapsingNode(PaintingContext context, RenderBox child,
       Offset offset, Offset pos, double t) {
+    final padding = _saveLayerPadding;
     final progress = (1.0 - t);
     final center =
         pos + offset + Offset(child.size.width * 0.5, child.size.height * 0.5);
@@ -387,8 +405,11 @@ class RenderCustomLayoutBox extends RenderBox
           Colors.white.withValues(alpha: progress), BlendMode.modulate);
 
     context.canvas.saveLayer(
-        Rect.fromLTWH(pos.dx + offset.dx - 20, pos.dy + offset.dy - 20,
-            child.size.width + 40, child.size.height + 40),
+        Rect.fromLTWH(
+            pos.dx + offset.dx - padding,
+            pos.dy + offset.dy - padding,
+            child.size.width + (padding * 2),
+            child.size.height + (padding * 2)),
         opacityPaint);
 
     context.paintChild(child, offset + pos);
@@ -417,7 +438,10 @@ class RenderCustomLayoutBox extends RenderBox
       final child = buildOrObtainChildFor(node);
       if (child != null) {
         child.layout(constraints, parentUsesSize: true);
-        node.size = Size(child.size.width.ceilToDouble(), child.size.height);
+        node.size = Size(
+          child.size.width.ceilToDouble(),
+          child.size.height.ceilToDouble(),
+        );
       }
     }
   }
