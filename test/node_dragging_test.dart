@@ -12,7 +12,7 @@ void main() {
       expect(config.onNodeDragStart, isNull);
       expect(config.onNodeDragUpdate, isNull);
       expect(config.onNodeDragEnd, isNull);
-      expect(config.nodeLockPredicate, isNull);
+      expect(config.isDraggablePredicate, isNull);
     });
 
     test('Configuration with enabled false disables dragging', () {
@@ -108,9 +108,9 @@ void main() {
       expect(capturedFinalPosition, equals(finalPosition));
     });
 
-    test('nodeLockPredicate returns correct values', () {
+    test('isDraggablePredicate returns correct values', () {
       final config = NodeDraggingConfiguration(
-        nodeLockPredicate: (node) {
+        isDraggablePredicate: (node) {
           // Allow dragging if node ID is even number
           if (node.key?.value is int) {
             return (node.key!.value as int) % 2 == 0;
@@ -122,13 +122,13 @@ void main() {
       final evenNode = Node.Id(2);
       final oddNode = Node.Id(3);
 
-      expect(config.nodeLockPredicate?.call(evenNode), true);
-      expect(config.nodeLockPredicate?.call(oddNode), false);
+      expect(config.isDraggablePredicate?.call(evenNode), true);
+      expect(config.isDraggablePredicate?.call(oddNode), false);
     });
 
-    test('nodeLockPredicate with node.locked property', () {
+    test('isDraggablePredicate with node.locked property', () {
       final config = NodeDraggingConfiguration(
-        nodeLockPredicate: (node) {
+        isDraggablePredicate: (node) {
           return !node.locked;
         },
       );
@@ -139,8 +139,8 @@ void main() {
       final unlockedNode = Node.Id(2);
       unlockedNode.locked = false;
 
-      expect(config.nodeLockPredicate?.call(lockedNode), false);
-      expect(config.nodeLockPredicate?.call(unlockedNode), true);
+      expect(config.isDraggablePredicate?.call(lockedNode), false);
+      expect(config.isDraggablePredicate?.call(unlockedNode), true);
     });
 
     test('Configuration with all parameters set', () {
@@ -153,14 +153,14 @@ void main() {
         onNodeDragStart: (node) => startCount++,
         onNodeDragUpdate: (node, position) => updateCount++,
         onNodeDragEnd: (node, finalPosition) => endCount++,
-        nodeLockPredicate: (node) => true,
+        isDraggablePredicate: (node) => true,
       );
 
       expect(config.enabled, false);
       expect(config.onNodeDragStart, isNotNull);
       expect(config.onNodeDragUpdate, isNotNull);
       expect(config.onNodeDragEnd, isNotNull);
-      expect(config.nodeLockPredicate, isNotNull);
+      expect(config.isDraggablePredicate, isNotNull);
 
       final testNode = Node.Id(1);
       final testPosition = const Offset(0, 0);
@@ -198,9 +198,9 @@ void main() {
       expect(positions[2], const Offset(20, 20));
     });
 
-    test('nodeLockPredicate can handle different node types', () {
+    test('isDraggablePredicate can handle different node types', () {
       final config = NodeDraggingConfiguration(
-        nodeLockPredicate: (node) {
+        isDraggablePredicate: (node) {
           final value = node.key?.value;
           if (value is String) {
             return value.startsWith('draggable-');
@@ -217,10 +217,10 @@ void main() {
       final positiveIntNode = Node.Id(5);
       final zeroIntNode = Node.Id(0);
 
-      expect(config.nodeLockPredicate?.call(draggableStringNode), true);
-      expect(config.nodeLockPredicate?.call(nonDraggableStringNode), false);
-      expect(config.nodeLockPredicate?.call(positiveIntNode), true);
-      expect(config.nodeLockPredicate?.call(zeroIntNode), false);
+      expect(config.isDraggablePredicate?.call(draggableStringNode), true);
+      expect(config.isDraggablePredicate?.call(nonDraggableStringNode), false);
+      expect(config.isDraggablePredicate?.call(positiveIntNode), true);
+      expect(config.isDraggablePredicate?.call(zeroIntNode), false);
     });
 
     test('Callbacks handle nodes with different key types', () {

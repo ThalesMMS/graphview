@@ -7,7 +7,7 @@ class RenderCustomLayoutBox extends RenderBox
   late Paint _paint;
   late AnimationController _nodeAnimationController;
   late GraphChildDelegate _delegate;
-  GraphChildManager? childManager;
+  final GraphChildManager childManager;
 
   Size? _cachedSize;
   bool _isInitialized = false;
@@ -44,7 +44,7 @@ class RenderCustomLayoutBox extends RenderBox
     Paint? paint,
     bool enableAnimation, {
     required AnimationController nodeAnimationController,
-    this.childManager,
+    required this.childManager,
   }) {
     _nodeAnimationController = nodeAnimationController;
     _delegate = delegate;
@@ -57,10 +57,10 @@ class RenderCustomLayoutBox extends RenderBox
 
     if (_needsFullRecalculation || !_children.containsKey(node)) {
       invokeLayoutCallback<BoxConstraints>((BoxConstraints _) {
-        childManager!.buildChild(node);
+        childManager.buildChild(node);
       });
     } else {
-      childManager!.reuseChild(node);
+      childManager.reuseChild(node);
     }
 
     if (!_children.containsKey(node)) {
@@ -122,6 +122,7 @@ class RenderCustomLayoutBox extends RenderBox
   Paint get edgePaint => _paint;
 
   set edgePaint(Paint? value) {
+    // Always enforce stroke style for edge painting.
     final newPaint = value ??
         (Paint()
           ..color = Colors.black
@@ -170,6 +171,12 @@ class RenderCustomLayoutBox extends RenderBox
   /// Clears all cached paths. Useful when forcing full recalculation.
   void clearPathCache() {
     _pathCache.clear();
+  }
+
+  /// Removes cache entries for edges that no longer exist in the current graph.
+  void _pruneStalePathCache() {
+    final currentEdges = graph.edges.toSet();
+    _pathCache.removeWhere((edge, _) => !currentEdges.contains(edge));
   }
 
   void _onAnimationTick() {
@@ -270,11 +277,12 @@ class RenderCustomLayoutBox extends RenderBox
   @override
   void performLayout() {
     _activeChildrenForLayoutPass.clear();
-    childManager!.startLayout();
+    childManager.startLayout();
 
     final looseConstraints = BoxConstraints.loose(constraints.biggest);
 
     if (_needsFullRecalculation || !_isInitialized) {
+      _pruneStalePathCache();
       _layoutNodesLazily(looseConstraints);
       _cachedSize = _delegate.runAlgorithm(looseConstraints.biggest);
       _isInitialized = true;
@@ -284,7 +292,7 @@ class RenderCustomLayoutBox extends RenderBox
     size = _cachedSize ?? Size.zero;
 
     invokeLayoutCallback<BoxConstraints>((BoxConstraints _) {
-      childManager!.endLayout();
+      childManager.endLayout();
     });
 
     if (enableAnimation) {
@@ -595,8 +603,8 @@ class RenderCustomLayoutBox extends RenderBox
       // Check if node is locked
       if (node.locked) return;
 
-      // Check nodeLockPredicate if configuration is available
-      final predicate = _nodeDraggingConfiguration?.nodeLockPredicate;
+      // Check isDraggablePredicate if configuration is available
+      final predicate = _nodeDraggingConfiguration?.isDraggablePredicate;
       if (predicate != null && !predicate(node)) return;
 
       _activePointerId = event.pointer;
