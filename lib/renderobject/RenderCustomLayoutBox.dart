@@ -239,7 +239,11 @@ class RenderCustomLayoutBox extends RenderBox
       context.canvas.save();
       context.canvas.translate(offset.dx, offset.dy);
       graph.edges.forEach((edge) {
-        algorithm.renderer?.renderEdge(context.canvas, edge, edgePaint);
+        algorithm.renderer?.renderEdge(
+          context.canvas,
+          edge,
+          edge.paint ?? edgePaint,
+        );
       });
 
       // Invalidate cached paths for dirty edges before clearing
