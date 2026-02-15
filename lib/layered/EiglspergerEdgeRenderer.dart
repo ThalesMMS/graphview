@@ -5,7 +5,6 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
   Map<Edge, EiglspergerEdgeData> edgeData;
   BendPointShape bendPointShape;
   bool addTriangleToEdge;
-  var path = Path();
 
   EiglspergerEdgeRenderer(this.nodeData, this.edgeData, this.bendPointShape,
       this.addTriangleToEdge);
@@ -83,6 +82,7 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
     final source = edge.source;
     final destination = edge.destination;
     var bendPoints = edgeData[edge]!.bendPoints;
+    final path = Path();
 
     var sourceCenter = _getNodeCenter(source);
 
@@ -90,7 +90,6 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
     final transitionDx = sourceCenter.dx - bendPoints[0];
     final transitionDy = sourceCenter.dy - bendPoints[1];
 
-    path.reset();
     path.moveTo(sourceCenter.dx, sourceCenter.dy);
 
     final bendPointsWithoutDuplication = <Offset>[];
@@ -113,13 +112,13 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
     }
 
     if (bendPointShape is MaxCurvedBendPointShape) {
-      _drawMaxCurvedBendPointsEdge(bendPointsWithoutDuplication);
+      _drawMaxCurvedBendPointsEdge(path, bendPointsWithoutDuplication);
     } else if (bendPointShape is CurvedBendPointShape) {
       final shape = bendPointShape as CurvedBendPointShape;
       _drawCurvedBendPointsEdge(
-          bendPointsWithoutDuplication, shape.curveLength);
+          path, bendPointsWithoutDuplication, shape.curveLength);
     } else {
-      _drawSharpBendPointsEdge(bendPointsWithoutDuplication);
+      _drawSharpBendPointsEdge(path, bendPointsWithoutDuplication);
     }
 
     var descOffset = getNodePosition(destination);
@@ -201,13 +200,13 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
         lineType: lineType);
   }
 
-  void _drawSharpBendPointsEdge(List<Offset> bendPoints) {
+  void _drawSharpBendPointsEdge(Path path, List<Offset> bendPoints) {
     for (var i = 1; i < bendPoints.length - 1; i++) {
       path.lineTo(bendPoints[i].dx, bendPoints[i].dy);
     }
   }
 
-  void _drawMaxCurvedBendPointsEdge(List<Offset> bendPoints) {
+  void _drawMaxCurvedBendPointsEdge(Path path, List<Offset> bendPoints) {
     for (var i = 1; i < bendPoints.length - 1; i++) {
       final nextNode = bendPoints[i];
       final afterNextNode = bendPoints[i + 1];
@@ -218,7 +217,8 @@ class EiglspergerEdgeRenderer extends ArrowEdgeRenderer {
     }
   }
 
-  void _drawCurvedBendPointsEdge(List<Offset> bendPoints, double curveLength) {
+  void _drawCurvedBendPointsEdge(
+      Path path, List<Offset> bendPoints, double curveLength) {
     for (var i = 1; i < bendPoints.length - 1; i++) {
       final previousNode = i == 1 ? null : bendPoints[i - 2];
       final currentNode = bendPoints[i - 1];

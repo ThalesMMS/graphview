@@ -466,17 +466,31 @@ class RenderCustomLayoutBox extends RenderBox
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
-    if (enableAnimation && !_nodeAnimationController.isCompleted) return false;
+    final isAnimationInProgress =
+        enableAnimation && !_nodeAnimationController.isCompleted;
 
     for (final entry in _children.entries) {
       final node = entry.key;
 
       if (delegate.isNodeVisible(node)) {
         final child = entry.value;
-
+        final nodeData = child.parentData as NodeBoxData;
         final childParentData = child.parentData as BoxParentData;
+
+        if (isAnimationInProgress) {
+          final isMoving = nodeData.startOffset != nodeData.targetOffset;
+          final isExpanding =
+              delegate.controller?.isNodeExpanding(node) ?? false;
+          if (isMoving || isExpanding) {
+            continue;
+          }
+        }
+
+        final hitOffset = isAnimationInProgress
+            ? (nodeData.targetOffset ?? childParentData.offset)
+            : childParentData.offset;
         final isHit = result.addWithPaintOffset(
-          offset: childParentData.offset,
+          offset: hitOffset,
           position: position,
           hitTest: (BoxHitTestResult result, Offset transformed) {
             return child.hitTest(result, position: transformed);
@@ -618,8 +632,7 @@ class RenderCustomLayoutBox extends RenderBox
         draggedNode.position = newPosition;
 
         // Mark all edges connected to this node as dirty
-        dirtyEdges.addAll(graph.getOutEdges(draggedNode));
-        dirtyEdges.addAll(graph.getInEdges(draggedNode));
+        _markConnectedEdgesDirty(draggedNode);
 
         // Store current position for next comparison
         _previousNodePositions[draggedNode] = newPosition;
@@ -656,7 +669,13 @@ class RenderCustomLayoutBox extends RenderBox
 
     // Restore node position on cancel
     if (_draggedNode != null && _dragStartNodePosition != null) {
-      _draggedNode!.position = _dragStartNodePosition!;
+      final draggedNode = _draggedNode!;
+      if (draggedNode.position != _dragStartNodePosition!) {
+        draggedNode.position = _dragStartNodePosition!;
+        _markConnectedEdgesDirty(draggedNode);
+        graph.markModified();
+      }
+
       // Clean up previous position tracking
       _previousNodePositions.remove(_draggedNode);
       markNeedsPaint();
@@ -667,6 +686,11 @@ class RenderCustomLayoutBox extends RenderBox
     _dragStartLocalPosition = null;
     _dragStartNodePosition = null;
     _isDragging = false;
+  }
+
+  void _markConnectedEdgesDirty(Node node) {
+    dirtyEdges.addAll(graph.getOutEdges(node));
+    dirtyEdges.addAll(graph.getInEdges(node));
   }
 
   @override

@@ -12,6 +12,8 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
   final Graph graph = Graph();
   late FruchtermanReingoldAlgorithm algorithm;
   final Random r = Random();
+  int? _algorithmIterations;
+  bool? _algorithmUsesBarnesHut;
 
   bool useBarnesHut = true;
   int nodeCount = 500;
@@ -50,15 +52,24 @@ class _BarnesHutDemoPageState extends State<BarnesHutDemoPage> {
     }
   }
 
-  void _updateAlgorithm() {
+  void _updateAlgorithm({bool force = false}) {
+    final iterationCount = iterations.toInt();
+    if (!force &&
+        _algorithmIterations == iterationCount &&
+        _algorithmUsesBarnesHut == useBarnesHut) {
+      return;
+    }
+
     final config = FruchtermanReingoldConfiguration()
-      ..iterations = iterations.toInt()
+      ..iterations = iterationCount
       ..useBarnesHut = useBarnesHut
       ..theta = 0.5
       ..repulsionRate = 0.2
       ..attractionRate = 0.15;
 
     algorithm = FruchtermanReingoldAlgorithm(config);
+    _algorithmIterations = iterationCount;
+    _algorithmUsesBarnesHut = useBarnesHut;
   }
 
   void _relayout() {

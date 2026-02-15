@@ -1015,8 +1015,10 @@ class SugiyamaAlgorithm
           }
           currentNode = align[currentNode]!;
         } while (currentNode != v);
-      } catch (e) {
-        print(e);
+      } catch (e, stackTrace) {
+        debugPrint(
+            'Error in placeBlock for root node $v while processing node $currentNode: $e');
+        debugPrint('$stackTrace');
       }
     }
   }

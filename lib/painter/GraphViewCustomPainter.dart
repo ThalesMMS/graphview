@@ -23,6 +23,9 @@ class GraphViewCustomPainter extends StatefulWidget {
 }
 
 class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
+  // Keeps a small margin so edges near (0,0) are not clipped by the canvas.
+  static const Offset _edgeLayerOffset = Offset(20, 20);
+
   Timer? timer;
   late Graph graph;
   late FruchtermanReingoldAlgorithm algorithm;
@@ -100,7 +103,7 @@ class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
       children: [
         CustomPaint(
           size: MediaQuery.of(context).size,
-          painter: EdgeRender(algorithm, graph, Offset(20, 20), widget.paint),
+          painter: EdgeRender(algorithm, graph, _edgeLayerOffset, widget.paint),
         ),
         ...List<Widget>.generate(graph.nodeCount(), (index) {
           return Positioned(

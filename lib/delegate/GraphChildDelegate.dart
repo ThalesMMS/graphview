@@ -80,11 +80,18 @@ class GraphChildDelegate {
     final visibleGraph = getVisibleGraphOnly();
 
     if (centerGraph) {
-      final viewPortSize =
-          _resolveCenterViewportSize(visibleGraph, availableSize);
-      final centerX = viewPortSize.width / 2;
-      final centerY = viewPortSize.height / 2;
-      algorithm.run(visibleGraph, centerX, centerY);
+      final resolvedViewportSize = _resolveCenterViewportSize(availableSize);
+      final viewPortSize = resolvedViewportSize ??
+          _viewportFromGraphSize(algorithm.run(visibleGraph, 0, 0));
+
+      if (resolvedViewportSize == null) {
+        _centerGraphInViewport(visibleGraph, viewPortSize);
+      } else {
+        final centerX = viewPortSize.width / 2;
+        final centerY = viewPortSize.height / 2;
+        algorithm.run(visibleGraph, centerX, centerY);
+      }
+
       return viewPortSize;
     } else {
       // Use default algorithm behavior
@@ -92,7 +99,7 @@ class GraphChildDelegate {
     }
   }
 
-  Size _resolveCenterViewportSize(Graph visibleGraph, Size availableSize) {
+  Size? _resolveCenterViewportSize(Size availableSize) {
     if (centerGraphViewportSize != null &&
         _isFinitePositive(centerGraphViewportSize!)) {
       return centerGraphViewportSize!;
@@ -104,9 +111,24 @@ class GraphChildDelegate {
       return availableSize;
     }
 
-    // Fallback for unbounded constraints: estimate from graph size with padding.
-    final measuredGraphSize = algorithm.run(visibleGraph, 0, 0);
-    return _viewportFromGraphSize(measuredGraphSize);
+    // Unbounded constraints: caller measures graph and derives viewport.
+    return null;
+  }
+
+  void _centerGraphInViewport(Graph visibleGraph, Size viewPortSize) {
+    if (visibleGraph.nodes.isEmpty) return;
+
+    final bounds = visibleGraph.calculateGraphBounds();
+    if (!bounds.width.isFinite || !bounds.height.isFinite) return;
+
+    final targetCenter =
+        Offset(viewPortSize.width / 2, viewPortSize.height / 2);
+    final delta = targetCenter - bounds.center;
+    if (delta == Offset.zero) return;
+
+    for (final node in visibleGraph.nodes) {
+      node.position += delta;
+    }
   }
 
   bool _isFinitePositive(Size size) {

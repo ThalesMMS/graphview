@@ -42,13 +42,23 @@ class GraphViewController {
 
   Node? findClosestVisibleAncestor(Graph graph, Node node) {
     var current = graph.predecessorsOf(node).firstOrNull;
+    final visited = <Node>{};
 
     // Walk up until we find a visible ancestor
     while (current != null) {
+      if (!visited.add(current)) {
+        return null;
+      }
+
       if (isNodeVisible(graph, current)) {
         return current; // Return the first (closest) visible ancestor
       }
-      current = graph.predecessorsOf(current).firstOrNull;
+
+      final next = graph.predecessorsOf(current).firstOrNull;
+      if (next != null && visited.contains(next)) {
+        return null;
+      }
+      current = next;
     }
 
     return null;
@@ -105,7 +115,7 @@ class GraphViewController {
     collapsedNodes.remove(node);
     hiddenBy.removeWhere((hiddenNode, hiddenBy) => hiddenBy == node);
 
-    expandingNodes.clear();
+    _clearExpandingNodesWhenIdle();
     _markExpandingDescendants(graph, node);
 
     if (animate) {
@@ -115,7 +125,7 @@ class GraphViewController {
   }
 
   void collapseNode(Graph graph, Node node, {animate = false}) {
-    expandingNodes.clear();
+    _clearExpandingNodesWhenIdle();
     if (graph.hasSuccessor(node)) {
       collapsedNodes[node] = true;
       collapsedNode = node;
@@ -187,6 +197,15 @@ class GraphViewController {
 
   void removeCollapsingNodes() {
     collapsedNode = null;
+    expandingNodes.clear();
+  }
+
+  void _clearExpandingNodesWhenIdle() {
+    final isNodeTransitionAnimating =
+        _state?._nodeController.isAnimating ?? false;
+    if (!isNodeTransitionAnimating) {
+      expandingNodes.clear();
+    }
   }
 
   void jumpToFocusedNode() {

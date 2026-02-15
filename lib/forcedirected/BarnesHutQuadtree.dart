@@ -73,7 +73,7 @@ class BarnesHutQuadtree {
   ///
   /// An empty node contains no graph nodes and has zero total mass.
   /// Empty nodes are skipped during force calculations.
-  bool get isEmpty => totalMass == 0.0;
+  bool get isEmpty => totalMass < 1e-9;
 
   /// Inserts a graph node into the quadtree.
   ///

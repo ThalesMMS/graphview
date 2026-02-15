@@ -21,6 +21,10 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
   // Drag events for logging
   final List<String> _dragEvents = [];
   final ScrollController _eventScrollController = ScrollController();
+  final Graph _graph = Graph();
+  late FruchtermanReingoldAlgorithm _algorithm;
+  final List<Node> _hubNodes = [];
+  int _dragUpdateCount = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -476,11 +480,6 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
       }
     });
   }
-
-  final Graph _graph = Graph();
-  late FruchtermanReingoldAlgorithm _algorithm;
-  final List<Node> _hubNodes = [];
-  int _dragUpdateCount = 0;
 
   @override
   void initState() {

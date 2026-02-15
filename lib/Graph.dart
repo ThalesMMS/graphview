@@ -54,6 +54,13 @@ class Graph {
 
   void removeNodes(List<Node> nodes) => nodes.forEach((it) => removeNode(it));
 
+  /// Adds an edge between [source] and [destination].
+  ///
+  /// Note on deduplication: `Graph` uses [Edge.==] when deciding whether an
+  /// edge already exists (`addEdgeS` checks `_edges.contains(edge)`). If you
+  /// mix keyed and unkeyed edges between the same endpoints, they are treated
+  /// as different edges and may both be kept. Use a consistent edge-keying
+  /// strategy (all keyed or all unkeyed) within a graph.
   Edge addEdge(Node source, Node destination,
       {Paint? paint,
       String? label,

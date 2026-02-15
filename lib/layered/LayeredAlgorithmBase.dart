@@ -64,9 +64,9 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
   }
 
   void shiftCoordinates(double shiftX, double shiftY) {
-    layers.forEach((List<Node?> arrayList) {
+    layers.forEach((arrayList) {
       arrayList.forEach((it) {
-        it!.position = Offset(it.x + shiftX, it.y + shiftY);
+        it.position = Offset(it.x + shiftX, it.y + shiftY);
       });
     });
   }
@@ -144,8 +144,7 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
           final predecessor = graph.predecessorsOf(current)[0];
           final successor = graph.successorsOf(current)[0];
           final edgeId = graph.getEdgeBetween(predecessor, current);
-          final existingEdgeData =
-              edgeId != null ? edgeData[edgeId] : null;
+          final existingEdgeData = edgeId != null ? edgeData[edgeId] : null;
           final bendPoints = existingEdgeData != null
               ? getBendPointsFromEdgeData(existingEdgeData)
               : <double>[];

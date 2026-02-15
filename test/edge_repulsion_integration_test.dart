@@ -140,10 +140,10 @@ void main() {
       // Render edges without repulsion
       renderer.renderEdge(canvas, edge1, paint);
       renderer.renderEdge(canvas, edge2, paint);
-      recorder.endRecording();
+      final picture = recorder.endRecording();
 
-      // The test passes if rendering completes without errors
-      expect(true, isTrue);
+      // Verify rendering completed and produced output.
+      expect(picture, isNotNull);
     });
 
     test('Repulsion calculation is reset on new render cycle', () {
@@ -175,17 +175,18 @@ void main() {
       final canvas1 = Canvas(recorder1);
       final paint = Paint()..color = Colors.black;
       renderer.renderEdge(canvas1, edge1, paint);
-      recorder1.endRecording();
+      final picture1 = recorder1.endRecording();
 
       // Second render cycle (should reset repulsion calculation)
       renderer.setGraph(graph);
       final recorder2 = PictureRecorder();
       final canvas2 = Canvas(recorder2);
       renderer.renderEdge(canvas2, edge1, paint);
-      recorder2.endRecording();
+      final picture2 = recorder2.endRecording();
 
-      // The test passes if both render cycles complete without errors
-      expect(true, isTrue);
+      // Verify both render cycles completed and produced output.
+      expect(picture1, isNotNull);
+      expect(picture2, isNotNull);
     });
 
     test(
@@ -279,10 +280,9 @@ void main() {
         // Should render without errors for all routing modes
         renderer.renderEdge(canvas, edge1, paint);
         renderer.renderEdge(canvas, edge2, paint);
-        recorder.endRecording();
+        final picture = recorder.endRecording();
+        expect(picture, isNotNull);
       }
-
-      expect(true, isTrue);
     });
 
     test('Repulsion solver is created and reused', () {
@@ -332,9 +332,9 @@ void main() {
       for (final edge in graph.edges) {
         renderer.renderEdge(canvas, edge, paint);
       }
-      recorder.endRecording();
+      final picture = recorder.endRecording();
 
-      expect(true, isTrue);
+      expect(picture, isNotNull);
     });
 
     test('Self-loop edges are handled correctly with repulsion', () {
@@ -361,9 +361,9 @@ void main() {
 
       // Should render self-loop without errors
       renderer.renderEdge(canvas, selfLoop, paint);
-      recorder.endRecording();
+      final picture = recorder.endRecording();
 
-      expect(true, isTrue);
+      expect(picture, isNotNull);
     });
   });
 }
