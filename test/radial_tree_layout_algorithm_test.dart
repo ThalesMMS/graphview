@@ -7,47 +7,31 @@ const itemWidth = 100.0;
 
 void main() {
   group('RadialTreeLayout Graph', () {
-    late Graph graph;
-    late Node node1;
-    late Node node2;
-    late Node node3;
-    late Node node4;
-    late Node node5;
-    late Node node6;
-    late Node node7;
-    late Node node8;
-    late Node node9;
-    late Node node10;
-    late Node node11;
-    late Node node12;
+    final graph = Graph();
+    final node1 = Node.Id(1);
+    final node2 = Node.Id(2);
+    final node3 = Node.Id(3);
+    final node4 = Node.Id(4);
+    final node5 = Node.Id(5);
+    final node6 = Node.Id(6);
+    final node7 = Node.Id(7);
+    final node8 = Node.Id(8);
+    final node9 = Node.Id(9);
+    final node10 = Node.Id(10);
+    final node11 = Node.Id(11);
+    final node12 = Node.Id(12);
 
-    setUp(() {
-      graph = Graph();
-      node1 = Node.Id(1);
-      node2 = Node.Id(2);
-      node3 = Node.Id(3);
-      node4 = Node.Id(4);
-      node5 = Node.Id(5);
-      node6 = Node.Id(6);
-      node7 = Node.Id(7);
-      node8 = Node.Id(8);
-      node9 = Node.Id(9);
-      node10 = Node.Id(10);
-      node11 = Node.Id(11);
-      node12 = Node.Id(12);
-
-      graph.addEdge(node1, node2);
-      graph.addEdge(node1, node3, paint: Paint()..color = Colors.red);
-      graph.addEdge(node1, node4, paint: Paint()..color = Colors.blue);
-      graph.addEdge(node2, node5);
-      graph.addEdge(node2, node6);
-      graph.addEdge(node6, node7, paint: Paint()..color = Colors.red);
-      graph.addEdge(node6, node8, paint: Paint()..color = Colors.red);
-      graph.addEdge(node4, node9);
-      graph.addEdge(node4, node10, paint: Paint()..color = Colors.black);
-      graph.addEdge(node4, node11, paint: Paint()..color = Colors.red);
-      graph.addEdge(node11, node12);
-    });
+    graph.addEdge(node1, node2);
+    graph.addEdge(node1, node3, paint: Paint()..color = Colors.red);
+    graph.addEdge(node1, node4, paint: Paint()..color = Colors.blue);
+    graph.addEdge(node2, node5);
+    graph.addEdge(node2, node6);
+    graph.addEdge(node6, node7, paint: Paint()..color = Colors.red);
+    graph.addEdge(node6, node8, paint: Paint()..color = Colors.red);
+    graph.addEdge(node4, node9);
+    graph.addEdge(node4, node10, paint: Paint()..color = Colors.black);
+    graph.addEdge(node4, node11, paint: Paint()..color = Colors.red);
+    graph.addEdge(node11, node12);
 
     test('RadialTreeLayout Node positions are calculated correctly', () {
       final configuration = BuchheimWalkerConfiguration()
@@ -67,7 +51,7 @@ void main() {
       var size = algorithm.run(graph, 10, 10);
       var timeTaken = stopwatch.elapsed.inMilliseconds;
 
-      expect(timeTaken, lessThan(1000));
+      expect(timeTaken < 1000, true);
 
       // Verify that nodes have been positioned (not at origin)
       expect(graph.getNodeAtPosition(0).position, isNot(Offset.zero));
@@ -256,6 +240,9 @@ void main() {
           configuration, TreeEdgeRenderer(configuration));
 
       var graph = _createGraph(1000);
+      for (var i = 0; i < graph.nodeCount(); i++) {
+        graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
+      }
 
       var stopwatch = Stopwatch()..start();
       algorithm.run(graph, 0, 0);
@@ -263,7 +250,7 @@ void main() {
 
       print('Timetaken $timeTaken for ${graph.nodeCount()} nodes');
 
-      expect(timeTaken, lessThan(100));
+      expect(timeTaken < 100, true);
     });
 
     test('RadialTreeLayout applies shift correctly', () {

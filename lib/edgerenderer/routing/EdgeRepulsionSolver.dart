@@ -17,7 +17,11 @@ class EdgeSegment {
   /// Index of this segment within the edge path (for multi-segment edges).
   final int segmentIndex;
 
-  EdgeSegment(this.start, this.end, this.edge, this.segmentIndex);
+  /// Stable identifier used for fast pair de-duplication in the solver.
+  final int id;
+
+  EdgeSegment(this.start, this.end, this.edge, this.segmentIndex,
+      [this.id = -1]);
 
   /// Returns the bounding box of this segment.
   Rect getBounds() {
@@ -30,9 +34,9 @@ class EdgeSegment {
 
   /// Returns the midpoint of this segment.
   Offset get midpoint => Offset(
-    (start.dx + end.dx) / 2,
-    (start.dy + end.dy) / 2,
-  );
+        (start.dx + end.dx) / 2,
+        (start.dy + end.dy) / 2,
+      );
 
   /// Returns the direction vector of this segment.
   Offset get direction => end - start;
@@ -56,16 +60,10 @@ class EdgeRepulsionSolver {
 
   /// The spatial grid storing edge segments.
   /// Key: cell coordinate (row, col), Value: list of edge segments in that cell.
-  final Map<String, List<EdgeSegment>> _grid = {};
+  final Map<int, List<EdgeSegment>> _grid = {};
 
   /// Cache of edge segments for reuse.
   final List<EdgeSegment> _segments = [];
-
-  /// Stable unique IDs for each segment, used for deterministic pair keys.
-  final Map<EdgeSegment, int> _segmentIds = {};
-
-  /// Monotonic counter for assigning unique segment IDs.
-  int _nextSegmentId = 0;
 
   /// Generation counter to track when grid needs rebuilding.
   int _generation = 0;
@@ -80,8 +78,6 @@ class EdgeRepulsionSolver {
   void clear() {
     _grid.clear();
     _segments.clear();
-    _segmentIds.clear();
-    _nextSegmentId = 0;
     _generation++;
   }
 
@@ -90,7 +86,6 @@ class EdgeRepulsionSolver {
   /// The segment is added to all cells that its bounding box overlaps.
   void addSegment(EdgeSegment segment) {
     _segments.add(segment);
-    _segmentIds[segment] = _nextSegmentId++;
 
     final bounds = segment.getBounds();
 
@@ -128,6 +123,7 @@ class EdgeRepulsionSolver {
         destPos,
         edge,
         0,
+        _segments.length,
       );
 
       addSegment(segment);
@@ -138,8 +134,13 @@ class EdgeRepulsionSolver {
   ///
   /// Returns a list of segments from neighboring cells that might intersect.
   /// The caller should perform actual intersection tests using VectorUtils.
-  List<EdgeSegment> findCandidateIntersections(EdgeSegment segment) {
-    final candidates = <EdgeSegment>{};
+  List<EdgeSegment> findCandidateIntersections(
+    EdgeSegment segment, {
+    int cellPadding = 1,
+    void Function(EdgeSegment candidate)? onCandidate,
+  }) {
+    final seenCandidateIds = <int>{};
+    final candidates = onCandidate == null ? <EdgeSegment>[] : null;
 
     final bounds = segment.getBounds();
 
@@ -151,21 +152,28 @@ class EdgeRepulsionSolver {
 
     // Query all cells that this segment overlaps, plus neighboring cells
     // to account for segments that span multiple cells
-    for (var row = minRow - 1; row <= maxRow + 1; row++) {
-      for (var col = minCol - 1; col <= maxCol + 1; col++) {
+    for (var row = minRow - cellPadding; row <= maxRow + cellPadding; row++) {
+      for (var col = minCol - cellPadding; col <= maxCol + cellPadding; col++) {
         final cellKey = _getCellKey(row, col);
         final cellSegments = _grid[cellKey];
 
         if (cellSegments != null) {
-          candidates.addAll(cellSegments);
+          for (final candidate in cellSegments) {
+            if (candidate.id == segment.id ||
+                !seenCandidateIds.add(candidate.id)) {
+              continue;
+            }
+            if (onCandidate != null) {
+              onCandidate(candidate);
+            } else {
+              candidates!.add(candidate);
+            }
+          }
         }
       }
     }
 
-    // Remove the segment itself from candidates
-    candidates.remove(segment);
-
-    return candidates.toList();
+    return candidates ?? const <EdgeSegment>[];
   }
 
   /// Detects all intersecting edge segment pairs in the grid.
@@ -177,38 +185,40 @@ class EdgeRepulsionSolver {
   /// by only checking segments in nearby cells rather than all pairs.
   List<List<EdgeSegment>> detectIntersections() {
     final intersections = <List<EdgeSegment>>[];
-    final checkedPairs = <String>{};
+    final checkedPairs = <int>{};
 
     for (final segment in _segments) {
-      final candidates = findCandidateIntersections(segment);
+      findCandidateIntersections(
+        segment,
+        cellPadding: 0,
+        onCandidate: (candidate) {
+          // Create a unique pair key to avoid checking the same pair twice
+          final pairKey = _getPairKey(segment, candidate);
 
-      for (final candidate in candidates) {
-        // Create a unique pair key to avoid checking the same pair twice
-        final pairKey = _getPairKey(segment, candidate);
+          if (checkedPairs.contains(pairKey)) {
+            return;
+          }
 
-        if (checkedPairs.contains(pairKey)) {
-          continue;
-        }
+          checkedPairs.add(pairKey);
 
-        checkedPairs.add(pairKey);
+          // Skip segments from the same edge
+          if (segment.edge == candidate.edge) {
+            return;
+          }
 
-        // Skip segments from the same edge
-        if (segment.edge == candidate.edge) {
-          continue;
-        }
+          // Perform actual intersection test using VectorUtils
+          final intersection = VectorUtils.lineIntersection(
+            segment.start,
+            segment.end,
+            candidate.start,
+            candidate.end,
+          );
 
-        // Perform actual intersection test using VectorUtils
-        final intersection = VectorUtils.lineIntersection(
-          segment.start,
-          segment.end,
-          candidate.start,
-          candidate.end,
-        );
-
-        if (intersection != null) {
-          intersections.add([segment, candidate]);
-        }
-      }
+          if (intersection != null) {
+            intersections.add([segment, candidate]);
+          }
+        },
+      );
     }
 
     return intersections;
@@ -223,33 +233,36 @@ class EdgeRepulsionSolver {
   /// necessarily intersect but are visually too close together.
   List<List<EdgeSegment>> detectProximity(double minDistance) {
     final proximities = <List<EdgeSegment>>[];
-    final checkedPairs = <String>{};
+    final checkedPairs = <int>{};
 
     for (final segment in _segments) {
-      final candidates = findCandidateIntersections(segment);
+      final cellPadding = max(1, (minDistance / cellSize).ceil());
+      findCandidateIntersections(
+        segment,
+        cellPadding: cellPadding,
+        onCandidate: (candidate) {
+          // Create a unique pair key to avoid checking the same pair twice
+          final pairKey = _getPairKey(segment, candidate);
 
-      for (final candidate in candidates) {
-        // Create a unique pair key to avoid checking the same pair twice
-        final pairKey = _getPairKey(segment, candidate);
+          if (checkedPairs.contains(pairKey)) {
+            return;
+          }
 
-        if (checkedPairs.contains(pairKey)) {
-          continue;
-        }
+          checkedPairs.add(pairKey);
 
-        checkedPairs.add(pairKey);
+          // Skip segments from the same edge
+          if (segment.edge == candidate.edge) {
+            return;
+          }
 
-        // Skip segments from the same edge
-        if (segment.edge == candidate.edge) {
-          continue;
-        }
+          // Calculate minimum distance between segments
+          final distance = _segmentDistance(segment, candidate);
 
-        // Calculate minimum distance between segments
-        final distance = _segmentDistance(segment, candidate);
-
-        if (distance < minDistance) {
-          proximities.add([segment, candidate]);
-        }
-      }
+          if (distance < minDistance) {
+            proximities.add([segment, candidate]);
+          }
+        },
+      );
     }
 
     return proximities;
@@ -266,23 +279,17 @@ class EdgeRepulsionSolver {
   }
 
   /// Gets a unique key for a grid cell.
-  String _getCellKey(int row, int col) {
-    return '$row,$col';
+  int _getCellKey(int row, int col) {
+    return ((row + 0x80000000) << 32) ^ (col + 0x80000000);
   }
 
   /// Gets a unique key for a pair of segments.
   ///
   /// The key is order-independent so (A, B) and (B, A) produce the same key.
-  String _getPairKey(EdgeSegment a, EdgeSegment b) {
-    final idA = _segmentIds.putIfAbsent(a, () => _nextSegmentId++);
-    final idB = _segmentIds.putIfAbsent(b, () => _nextSegmentId++);
-
-    // Ensure consistent ordering
-    if (idA < idB) {
-      return '$idA,$idB';
-    } else {
-      return '$idB,$idA';
-    }
+  int _getPairKey(EdgeSegment a, EdgeSegment b) {
+    final minId = a.id < b.id ? a.id : b.id;
+    final maxId = a.id < b.id ? b.id : a.id;
+    return (minId << 32) ^ maxId;
   }
 
   /// Calculates the minimum distance between two line segments.
@@ -292,7 +299,10 @@ class EdgeRepulsionSolver {
   double _segmentDistance(EdgeSegment a, EdgeSegment b) {
     // Check for actual intersection first - crossing segments have distance 0
     final intersection = VectorUtils.lineIntersection(
-      a.start, a.end, b.start, b.end,
+      a.start,
+      a.end,
+      b.start,
+      b.end,
     );
     if (intersection != null) {
       return 0.0;
@@ -301,12 +311,16 @@ class EdgeRepulsionSolver {
     double minDist = double.infinity;
 
     // Distance from a's endpoints to segment b
-    minDist = min(minDist, VectorUtils.distanceToLineSegment(a.start, b.start, b.end));
-    minDist = min(minDist, VectorUtils.distanceToLineSegment(a.end, b.start, b.end));
+    minDist = min(
+        minDist, VectorUtils.distanceToLineSegment(a.start, b.start, b.end));
+    minDist =
+        min(minDist, VectorUtils.distanceToLineSegment(a.end, b.start, b.end));
 
     // Distance from b's endpoints to segment a
-    minDist = min(minDist, VectorUtils.distanceToLineSegment(b.start, a.start, a.end));
-    minDist = min(minDist, VectorUtils.distanceToLineSegment(b.end, a.start, a.end));
+    minDist = min(
+        minDist, VectorUtils.distanceToLineSegment(b.start, a.start, a.end));
+    minDist =
+        min(minDist, VectorUtils.distanceToLineSegment(b.end, a.start, a.end));
 
     return minDist;
   }
@@ -323,15 +337,12 @@ class EdgeRepulsionSolver {
 
     final totalSegments = _segments.length;
     final totalCells = _grid.length;
-    final avgSegmentsPerCell = totalCells > 0
-        ? totalSegments / totalCells
-        : 0.0;
+    final avgSegmentsPerCell =
+        totalCells > 0 ? totalSegments / totalCells : 0.0;
     final medianSegmentsPerCell = cellCounts.isNotEmpty
         ? cellCounts[cellCounts.length ~/ 2].toDouble()
         : 0.0;
-    final maxSegmentsPerCell = cellCounts.isNotEmpty
-        ? cellCounts.last
-        : 0;
+    final maxSegmentsPerCell = cellCounts.isNotEmpty ? cellCounts.last : 0;
 
     return {
       'totalSegments': totalSegments,
@@ -376,7 +387,9 @@ class EdgeRepulsionSolver {
     buildGrid(edges, renderer);
 
     // Iterate to apply forces until convergence or max iterations
-    for (var iteration = 0; iteration < config.maxRepulsionIterations; iteration++) {
+    for (var iteration = 0;
+        iteration < config.maxRepulsionIterations;
+        iteration++) {
       // Track total movement in this iteration for convergence check
       var totalMovement = 0.0;
 
@@ -409,7 +422,8 @@ class EdgeRepulsionSolver {
 
         // Apply force with strength scaling
         final scaledForce = force * config.repulsionStrength;
-        repulsionOffsets[edge] = (repulsionOffsets[edge] ?? Offset.zero) + scaledForce;
+        repulsionOffsets[edge] =
+            (repulsionOffsets[edge] ?? Offset.zero) + scaledForce;
 
         totalMovement += scaledForce.distance;
       }
@@ -453,7 +467,8 @@ class EdgeRepulsionSolver {
     final segment1Perpendicular = VectorUtils.perpendicular(segment1Direction);
 
     // Normalize the perpendicular vector
-    final normalizedPerpendicular = VectorUtils.normalize(segment1Perpendicular);
+    final normalizedPerpendicular =
+        VectorUtils.normalize(segment1Perpendicular);
 
     // If normalization failed (zero-length segment), return no force
     if (normalizedPerpendicular == Offset.zero) {

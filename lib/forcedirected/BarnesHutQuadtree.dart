@@ -73,7 +73,7 @@ class BarnesHutQuadtree {
   ///
   /// An empty node contains no graph nodes and has zero total mass.
   /// Empty nodes are skipped during force calculations.
-  bool get isEmpty => totalMass < 1e-9;
+  bool get isEmpty => totalMass == 0.0;
 
   /// Inserts a graph node into the quadtree.
   ///
@@ -86,9 +86,6 @@ class BarnesHutQuadtree {
   ///
   /// Returns true if the node was successfully inserted, false if the node
   /// is outside the bounds.
-  ///
-  /// Throws [StateError] if insertion into child quadrants fails despite the
-  /// node being within this node's bounds (an internal consistency violation).
   bool insert(Node graphNode) {
     // Ignore nodes outside the bounds
     if (!bounds.contains(graphNode.position)) {
@@ -120,26 +117,14 @@ class BarnesHutQuadtree {
 
       // Reinsert the old node
       if (oldNode != null) {
-        if (!_insertIntoChild(oldNode)) {
-          throw StateError(
-            'Failed to reinsert existing node at ${oldNode.position} while subdividing bounds $bounds',
-          );
-        }
+        _insertIntoChild(oldNode);
       }
 
       // Insert the new node
-      if (!_insertIntoChild(graphNode)) {
-        throw StateError(
-          'Failed to insert node at ${graphNode.position} after subdividing bounds $bounds',
-        );
-      }
+      _insertIntoChild(graphNode);
     } else {
       // This is an internal node, insert into appropriate child
-      if (!_insertIntoChild(graphNode)) {
-        throw StateError(
-          'Failed to insert node at ${graphNode.position} into child quadrant for bounds $bounds',
-        );
-      }
+      _insertIntoChild(graphNode);
     }
 
     // Update center of mass and total mass
@@ -170,13 +155,11 @@ class BarnesHutQuadtree {
   ///
   /// Attempts to insert the node into each child quadrant in order (NW, NE, SW, SE)
   /// until one accepts it based on spatial bounds.
-  ///
-  /// Returns true if a child accepted the node, false otherwise.
-  bool _insertIntoChild(Node graphNode) {
-    if (northWest!.insert(graphNode)) return true;
-    if (northEast!.insert(graphNode)) return true;
-    if (southWest!.insert(graphNode)) return true;
-    return southEast!.insert(graphNode);
+  void _insertIntoChild(Node graphNode) {
+    if (northWest!.insert(graphNode)) return;
+    if (northEast!.insert(graphNode)) return;
+    if (southWest!.insert(graphNode)) return;
+    if (southEast!.insert(graphNode)) return;
   }
 
   /// Updates the center of mass and total mass incrementally for this node.
@@ -205,9 +188,7 @@ class BarnesHutQuadtree {
     if (isLeaf) {
       // Leaf node: mass and center come directly from the stored node
       if (node != null) {
-        if (totalMass == 0.0) {
-          totalMass = 1.0;
-        }
+        totalMass = 1.0;
         centerOfMass = node!.position;
       } else {
         totalMass = 0.0;

@@ -8,7 +8,7 @@ class AdaptiveEdgeExamplePage extends StatefulWidget {
 }
 
 class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
-  final GraphViewController _controller = GraphViewController();
+  GraphViewController _controller = GraphViewController();
 
   // Configuration state
   AnchorMode _anchorMode = AnchorMode.dynamic;
@@ -21,10 +21,6 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
   // Drag events for logging
   final List<String> _dragEvents = [];
   final ScrollController _eventScrollController = ScrollController();
-  final Graph _graph = Graph();
-  late FruchtermanReingoldAlgorithm _algorithm;
-  final List<Node> _hubNodes = [];
-  int _dragUpdateCount = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -214,8 +210,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
                             SizedBox(height: 8),
                             Row(
                               children: [
-                                Text(
-                                    'Strength: ${_repulsionStrength.toStringAsFixed(2)}'),
+                                Text('Strength: ${_repulsionStrength.toStringAsFixed(2)}'),
                                 SizedBox(width: 16),
                                 Expanded(
                                   child: Slider(
@@ -223,8 +218,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
                                     min: 0.1,
                                     max: 1.0,
                                     divisions: 9,
-                                    label:
-                                        _repulsionStrength.toStringAsFixed(2),
+                                    label: _repulsionStrength.toStringAsFixed(2),
                                     onChanged: (value) {
                                       _repulsionStrength = value;
                                       _updateRenderer();
@@ -235,8 +229,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
                             ),
                             Row(
                               children: [
-                                Text(
-                                    'Min Distance: ${_minEdgeDistance.toStringAsFixed(0)}px'),
+                                Text('Min Distance: ${_minEdgeDistance.toStringAsFixed(0)}px'),
                                 SizedBox(width: 16),
                                 Expanded(
                                   child: Slider(
@@ -267,8 +260,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
                   children: [
                     Text(
                       'Node Dragging: ',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     Switch(
                       value: _draggingEnabled,
@@ -286,8 +278,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
                       icon: Icon(Icons.fit_screen, size: 18),
                       label: Text('Zoom to Fit'),
                       style: ElevatedButton.styleFrom(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),
                     ),
                     SizedBox(width: 8),
@@ -300,8 +291,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
                       icon: Icon(Icons.clear, size: 18),
                       label: Text('Clear Events'),
                       style: ElevatedButton.styleFrom(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),
                     ),
                   ],
@@ -317,25 +307,22 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
             flex: 3,
             child: GraphView.builder(
               controller: _controller,
-              graph: _graph,
-              algorithm: _algorithm,
+              graph: graph,
+              algorithm: algorithm,
               centerGraph: true,
               nodeDraggingConfig: NodeDraggingConfiguration(
                 enabled: _draggingEnabled,
                 onNodeDragStart: (node) {
-                  _dragUpdateCount = 0;
                   _addDragEvent('Drag Start: Node ${node.key?.value}');
                 },
                 onNodeDragUpdate: (node, position) {
-                  _dragUpdateCount++;
                   // Only log occasional updates to avoid spam
-                  if (_dragUpdateCount % 10 == 0) {
+                  if (_dragEvents.length % 10 == 0) {
                     _addDragEvent('Dragging Node ${node.key?.value}...');
                   }
                 },
                 onNodeDragEnd: (node, finalPosition) {
-                  _addDragEvent(
-                      'Drag End: Node ${node.key?.value} at (${finalPosition.dx.toStringAsFixed(0)}, ${finalPosition.dy.toStringAsFixed(0)})');
+                  _addDragEvent('Drag End: Node ${node.key?.value} at (${finalPosition.dx.toStringAsFixed(0)}, ${finalPosition.dy.toStringAsFixed(0)})');
                 },
               ),
               builder: (Node node) {
@@ -353,8 +340,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: (isHub ? Colors.orange : Colors.blue)
-                            .withAlpha((0.3 * 255).round()),
+                        color: (isHub ? Colors.orange : Colors.blue).withValues(alpha: 0.3),
                         spreadRadius: 2,
                         blurRadius: 5,
                       ),
@@ -481,6 +467,10 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
     });
   }
 
+  final Graph graph = Graph();
+  late FruchtermanReingoldAlgorithm algorithm;
+  final List<Node> _hubNodes = [];
+
   @override
   void initState() {
     super.initState();
@@ -515,116 +505,44 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
     final node15 = Node.Id(15);
 
     // Hub1 connections (orange edges)
-    _graph.addEdge(hub1, node4,
-        paint: Paint()
-          ..color = Colors.orange
-          ..strokeWidth = 2);
-    _graph.addEdge(hub1, node5,
-        paint: Paint()
-          ..color = Colors.orange
-          ..strokeWidth = 2);
-    _graph.addEdge(hub1, node6,
-        paint: Paint()
-          ..color = Colors.orange
-          ..strokeWidth = 2);
-    _graph.addEdge(hub1, node7,
-        paint: Paint()
-          ..color = Colors.orange
-          ..strokeWidth = 2);
+    graph.addEdge(hub1, node4, paint: Paint()..color = Colors.orange..strokeWidth = 2);
+    graph.addEdge(hub1, node5, paint: Paint()..color = Colors.orange..strokeWidth = 2);
+    graph.addEdge(hub1, node6, paint: Paint()..color = Colors.orange..strokeWidth = 2);
+    graph.addEdge(hub1, node7, paint: Paint()..color = Colors.orange..strokeWidth = 2);
 
     // Hub2 connections (green edges)
-    _graph.addEdge(hub2, node8,
-        paint: Paint()
-          ..color = Colors.green
-          ..strokeWidth = 2);
-    _graph.addEdge(hub2, node9,
-        paint: Paint()
-          ..color = Colors.green
-          ..strokeWidth = 2);
-    _graph.addEdge(hub2, node10,
-        paint: Paint()
-          ..color = Colors.green
-          ..strokeWidth = 2);
+    graph.addEdge(hub2, node8, paint: Paint()..color = Colors.green..strokeWidth = 2);
+    graph.addEdge(hub2, node9, paint: Paint()..color = Colors.green..strokeWidth = 2);
+    graph.addEdge(hub2, node10, paint: Paint()..color = Colors.green..strokeWidth = 2);
 
     // Hub3 connections (purple edges)
-    _graph.addEdge(hub3, node11,
-        paint: Paint()
-          ..color = Colors.purple
-          ..strokeWidth = 2);
-    _graph.addEdge(hub3, node12,
-        paint: Paint()
-          ..color = Colors.purple
-          ..strokeWidth = 2);
-    _graph.addEdge(hub3, node13,
-        paint: Paint()
-          ..color = Colors.purple
-          ..strokeWidth = 2);
+    graph.addEdge(hub3, node11, paint: Paint()..color = Colors.purple..strokeWidth = 2);
+    graph.addEdge(hub3, node12, paint: Paint()..color = Colors.purple..strokeWidth = 2);
+    graph.addEdge(hub3, node13, paint: Paint()..color = Colors.purple..strokeWidth = 2);
 
     // Inter-hub connections (blue edges) - demonstrates parallel edges
-    _graph.addEdge(hub1, hub2,
-        paint: Paint()
-          ..color = Colors.blue
-          ..strokeWidth = 3);
-    _graph.addEdge(hub2, hub3,
-        paint: Paint()
-          ..color = Colors.blue
-          ..strokeWidth = 3);
-    _graph.addEdge(hub3, hub1,
-        paint: Paint()
-          ..color = Colors.blue
-          ..strokeWidth = 3);
+    graph.addEdge(hub1, hub2, paint: Paint()..color = Colors.blue..strokeWidth = 3);
+    graph.addEdge(hub2, hub3, paint: Paint()..color = Colors.blue..strokeWidth = 3);
+    graph.addEdge(hub3, hub1, paint: Paint()..color = Colors.blue..strokeWidth = 3);
 
     // Additional parallel edges to demonstrate anchor distribution
-    _graph.addEdge(hub1, hub2,
-        paint: Paint()
-          ..color = Colors.cyan
-          ..strokeWidth = 2);
+    graph.addEdge(hub1, hub2, paint: Paint()..color = Colors.cyan..strokeWidth = 2);
 
     // Cross connections (demonstrates complex routing)
-    _graph.addEdge(node4, node8,
-        paint: Paint()
-          ..color = Colors.red
-          ..strokeWidth = 1.5);
-    _graph.addEdge(node5, node11,
-        paint: Paint()
-          ..color = Colors.pink
-          ..strokeWidth = 1.5);
-    _graph.addEdge(node6, node12,
-        paint: Paint()
-          ..color = Colors.teal
-          ..strokeWidth = 1.5);
-    _graph.addEdge(node7, hub2,
-        paint: Paint()
-          ..color = Colors.amber
-          ..strokeWidth = 1.5);
+    graph.addEdge(node4, node8, paint: Paint()..color = Colors.red..strokeWidth = 1.5);
+    graph.addEdge(node5, node11, paint: Paint()..color = Colors.pink..strokeWidth = 1.5);
+    graph.addEdge(node6, node12, paint: Paint()..color = Colors.teal..strokeWidth = 1.5);
+    graph.addEdge(node7, hub2, paint: Paint()..color = Colors.amber..strokeWidth = 1.5);
 
     // Additional nodes connected to multiple hubs
-    _graph.addEdge(node14, hub1,
-        paint: Paint()
-          ..color = Colors.indigo
-          ..strokeWidth = 2);
-    _graph.addEdge(node14, hub2,
-        paint: Paint()
-          ..color = Colors.indigo
-          ..strokeWidth = 2);
-    _graph.addEdge(node15, hub2,
-        paint: Paint()
-          ..color = Colors.lime
-          ..strokeWidth = 2);
-    _graph.addEdge(node15, hub3,
-        paint: Paint()
-          ..color = Colors.lime
-          ..strokeWidth = 2);
+    graph.addEdge(node14, hub1, paint: Paint()..color = Colors.indigo..strokeWidth = 2);
+    graph.addEdge(node14, hub2, paint: Paint()..color = Colors.indigo..strokeWidth = 2);
+    graph.addEdge(node15, hub2, paint: Paint()..color = Colors.lime..strokeWidth = 2);
+    graph.addEdge(node15, hub3, paint: Paint()..color = Colors.lime..strokeWidth = 2);
 
     // Some bidirectional edges to demonstrate anchor distribution
-    _graph.addEdge(node10, hub3,
-        paint: Paint()
-          ..color = Colors.deepOrange
-          ..strokeWidth = 1.5);
-    _graph.addEdge(node9, node13,
-        paint: Paint()
-          ..color = Colors.brown
-          ..strokeWidth = 1.5);
+    graph.addEdge(node10, hub3, paint: Paint()..color = Colors.deepOrange..strokeWidth = 1.5);
+    graph.addEdge(node9, node13, paint: Paint()..color = Colors.brown..strokeWidth = 1.5);
 
     // Configure force-directed layout for organic positioning
     var config = FruchtermanReingoldConfiguration()
@@ -632,7 +550,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
       ..attractionRate = 0.5
       ..repulsionRate = 0.5;
 
-    _algorithm = FruchtermanReingoldAlgorithm(config);
+    algorithm = FruchtermanReingoldAlgorithm(config);
 
     // Set initial renderer with default configuration
     _updateRenderer();
@@ -651,7 +569,7 @@ class _AdaptiveEdgeExamplePageState extends State<AdaptiveEdgeExamplePage> {
         ..movementThreshold = 1.0;
 
       // Use AdaptiveEdgeRenderer with current configuration
-      _algorithm.renderer = AdaptiveEdgeRenderer(config: config);
+      algorithm.renderer = AdaptiveEdgeRenderer(config: config);
     });
   }
 

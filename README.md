@@ -26,6 +26,21 @@ Features
 - **Customizable Rendering**: Custom edge renderers, paint styling, and node builders
 - **Touch Interactions**: Pan, zoom, and tap handling with InteractiveViewer integration
 
+Adaptive Edge Rendering
+=======================
+GraphView now exposes the adaptive routing pipeline so editor-like apps can
+reuse the final rendered path instead of reimplementing edge geometry.
+
+- Use `Edge.controlPoint` to force a quadratic manual bend for a specific edge.
+- Use `AdaptiveEdgeRenderer.buildEdgeGeometry()` to resolve the final path for
+  automatic, manual, and self-loop edges.
+- Use `AdaptiveEdgeRenderer.buildLabelGeometry()` to place labels from that same
+  final path.
+- Use `AnimatedAdaptiveEdgeRenderer` when flow particles need to follow the
+  routed curve rather than a straight-line fallback.
+- Pass `repaint:` to `GraphView.builder(...)` when only the edge animation tick
+  changes and you want a paint-only refresh.
+
 Migration
 =========
 If you're upgrading from an older version of GraphView, please refer to the [Migration Guide](MIGRATION.md) for information about API changes, deprecations, and how to update your code.
@@ -267,11 +282,16 @@ GraphView.builder(
   panAnimationDuration: Duration(milliseconds: 600),
   toggleAnimationDuration: Duration(milliseconds: 400),
   centerGraph: true,                // Center the graph in viewport
+  includeAllVisibleNodes: true,     // Keep disconnected visible nodes in the render graph
   builder: (Node node) {
     return YourCustomWidget(node);
   },
 )
 ```
+
+Use `includeAllVisibleNodes: true` when your graph can contain disconnected but
+still visible nodes, such as editors or canvas-style builders that need every
+visible node rendered even without visible edges.
 
 #### Node Expand/Collapse
 Use the `GraphViewController` to manage node visibility:

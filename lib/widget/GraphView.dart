@@ -11,12 +11,15 @@ class GraphView extends StatefulWidget {
 
   final Duration? panAnimationDuration;
   final Duration? toggleAnimationDuration;
+  final Curve panAnimationCurve;
+  final Curve nodeAnimationCurve;
   final ValueKey? initialNode;
   final bool autoZoomToFit;
   final GraphChildDelegate delegate;
   final bool centerGraph;
-  final Size? centerGraphViewportSize;
+  final bool includeAllVisibleNodes;
   final NodeDraggingConfiguration? nodeDraggingConfig;
+  final Listenable? repaint;
 
   GraphView({
     Key? key,
@@ -27,21 +30,24 @@ class GraphView extends StatefulWidget {
     this.animated = true,
     this.controller,
     this.toggleAnimationDuration,
+    this.panAnimationCurve = Curves.linear,
+    this.nodeAnimationCurve = Curves.linear,
     this.centerGraph = false,
-    this.centerGraphViewportSize,
+    this.includeAllVisibleNodes = false,
     this.nodeDraggingConfig,
+    this.repaint,
   })  : _isBuilder = false,
         autoZoomToFit = false,
         initialNode = null,
         panAnimationDuration = null,
         delegate = GraphChildDelegate(
-            graph: graph,
-            algorithm: algorithm,
-            builder: builder,
-            controller: controller,
-            centerGraph: centerGraph,
-            centerGraphViewportSize: centerGraphViewportSize,
-            nodeDraggingConfig: nodeDraggingConfig),
+          graph: graph,
+          algorithm: algorithm,
+          builder: builder,
+          controller: null,
+          includeAllVisibleNodes: includeAllVisibleNodes,
+          nodeDraggingConfig: nodeDraggingConfig,
+        ),
         super(key: key);
 
   GraphView.builder({
@@ -56,20 +62,26 @@ class GraphView extends StatefulWidget {
     this.autoZoomToFit = false,
     this.panAnimationDuration,
     this.toggleAnimationDuration,
+    this.panAnimationCurve = Curves.linear,
+    this.nodeAnimationCurve = Curves.linear,
     this.centerGraph = false,
-    this.centerGraphViewportSize,
+    this.includeAllVisibleNodes = false,
     this.nodeDraggingConfig,
+    this.repaint,
   })  : _isBuilder = true,
         delegate = GraphChildDelegate(
-            graph: graph,
-            algorithm: algorithm,
-            builder: builder,
-            controller: controller,
-            centerGraph: centerGraph,
-            centerGraphViewportSize: centerGraphViewportSize,
-            nodeDraggingConfig: nodeDraggingConfig),
-        assert(!(autoZoomToFit && initialNode != null),
-            'Cannot use both autoZoomToFit and initialNode together. Choose one.'),
+          graph: graph,
+          algorithm: algorithm,
+          builder: builder,
+          controller: controller,
+          centerGraph: centerGraph,
+          includeAllVisibleNodes: includeAllVisibleNodes,
+          nodeDraggingConfig: nodeDraggingConfig,
+        ),
+        assert(
+          !(autoZoomToFit && initialNode != null),
+          'Cannot use both autoZoomToFit and initialNode together. Choose one.',
+        ),
         super(key: key);
 
   @override
@@ -78,7 +90,6 @@ class GraphView extends StatefulWidget {
 
 class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
   late TransformationController _transformationController;
-  late bool _ownsTransformationController;
   late final AnimationController _panController;
   late final AnimationController _nodeController;
   Animation<Matrix4>? _panAnimation;
@@ -87,8 +98,6 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
-    _ownsTransformationController =
-        widget.controller?.transformationController == null;
     _transformationController = widget.controller?.transformationController ??
         TransformationController();
 
@@ -118,82 +127,40 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
   }
 
   @override
-  void didUpdateWidget(covariant GraphView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (widget.controller != oldWidget.controller) {
-      oldWidget.controller?._detach();
-      widget.controller?._attach(this);
-
-      final newProvidedController = widget.controller?.transformationController;
-
-      if (!identical(newProvidedController, _transformationController)) {
-        final previousController = _transformationController;
-        final previousOwnedController = _ownsTransformationController;
-
-        if (newProvidedController != null) {
-          _ownsTransformationController = false;
-          _transformationController = newProvidedController;
-        } else {
-          _ownsTransformationController = true;
-          _transformationController = TransformationController(
-            previousController.value.clone(),
-          );
-        }
-
-        if (previousOwnedController &&
-            !identical(previousController, _transformationController)) {
-          previousController.dispose();
-        }
-      }
-    }
-
-    final oldPanDuration =
-        oldWidget.panAnimationDuration ?? const Duration(milliseconds: 600);
-    final updatedPanDuration =
-        widget.panAnimationDuration ?? const Duration(milliseconds: 600);
-    if (oldPanDuration != updatedPanDuration) {
-      _panController.duration = updatedPanDuration;
-    }
-
-    final oldToggleDuration =
-        oldWidget.toggleAnimationDuration ?? const Duration(milliseconds: 600);
-    final updatedToggleDuration =
-        widget.toggleAnimationDuration ?? const Duration(milliseconds: 600);
-    if (oldToggleDuration != updatedToggleDuration) {
-      _nodeController.duration = updatedToggleDuration;
-    }
-  }
-
-  @override
   void dispose() {
     widget.controller?._detach();
     _panController.dispose();
     _nodeController.dispose();
-    if (_ownsTransformationController) {
-      _transformationController.dispose();
-    }
+    _transformationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _panController.duration =
+        widget.panAnimationDuration ?? const Duration(milliseconds: 600);
+    _nodeController.duration =
+        widget.toggleAnimationDuration ?? const Duration(milliseconds: 600);
+
     final view = GraphViewWidget(
       paint: widget.paint,
       nodeAnimationController: _nodeController,
+      nodeAnimationCurve: widget.nodeAnimationCurve,
       enableAnimation: widget.animated,
       delegate: widget.delegate,
+      repaint: widget.repaint,
     );
 
     if (widget._isBuilder) {
       return InteractiveViewer.builder(
-          transformationController: _transformationController,
-          boundaryMargin: EdgeInsets.all(double.infinity),
-          minScale: 0.01,
-          maxScale: 10,
-          builder: (context, viewport) {
-            return view;
-          });
+        transformationController: _transformationController,
+        boundaryMargin: EdgeInsets.all(double.infinity),
+        minScale: 0.01,
+        maxScale: 10,
+        builder: (context, viewport) {
+          return view;
+        },
+      );
     }
 
     return view;
@@ -208,7 +175,9 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
 
   void jumpToNode(Node node, bool animated) {
     final nodeCenter = Offset(
-        node.position.dx + node.width / 2, node.position.dy + node.height / 2);
+      node.position.dx + node.width / 2,
+      node.position.dy + node.height / 2,
+    );
 
     jumpToOffset(nodeCenter, animated);
   }
@@ -247,13 +216,6 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
 
     final vp = renderBox.size;
     final bounds = graph.calculateGraphBounds();
-    if (graph.nodes.isEmpty ||
-        !bounds.width.isFinite ||
-        !bounds.height.isFinite ||
-        bounds.width <= 0 ||
-        bounds.height <= 0) {
-      return;
-    }
 
     const paddingFactor = 0.95;
     final scaleX = (vp.width / bounds.width) * paddingFactor;
@@ -264,8 +226,9 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
     final scaledHeight = bounds.height * scale;
 
     final centerOffset = Offset(
-        (vp.width - scaledWidth) * 0.5 - bounds.left * scale,
-        (vp.height - scaledHeight) * 0.5 - bounds.top * scale);
+      (vp.width - scaledWidth) * 0.5 - bounds.left * scale,
+      (vp.height - scaledHeight) * 0.5 - bounds.top * scale,
+    );
 
     final target = Matrix4.identity()
       // ignore: deprecated_member_use
@@ -276,14 +239,13 @@ class _GraphViewState extends State<GraphView> with TickerProviderStateMixin {
   }
 
   void animateToMatrix(Matrix4 target) {
-    if (_panAnimation != null) {
-      _panAnimation!.removeListener(_onPanTick);
-      _panAnimation = null;
-    }
     _panController.reset();
     _panAnimation = Matrix4Tween(
-            begin: _transformationController.value, end: target)
-        .animate(CurvedAnimation(parent: _panController, curve: Curves.linear));
+      begin: _transformationController.value,
+      end: target,
+    ).animate(
+      CurvedAnimation(parent: _panController, curve: widget.panAnimationCurve),
+    );
     _panAnimation!.addListener(_onPanTick);
     _panController.forward();
   }

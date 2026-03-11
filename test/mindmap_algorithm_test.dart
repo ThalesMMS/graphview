@@ -2,39 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
+import 'perf_test_utils.dart';
+
 const itemHeight = 100.0;
 const itemWidth = 100.0;
 
 void main() {
   group('MindMap Graph', () {
-    late Graph graph;
-
-    setUp(() {
-      graph = Graph();
-      final node1 = Node.Id(1);
-      final node2 = Node.Id(2);
-      final node3 = Node.Id(3);
-      final node4 = Node.Id(4);
-      final node5 = Node.Id(5);
-      final node6 = Node.Id(6);
-      final node7 = Node.Id(7);
-      final node8 = Node.Id(8);
-      final node9 = Node.Id(9);
-      final node10 = Node.Id(10);
-      final node11 = Node.Id(11);
-      final node12 = Node.Id(12);
-      graph.addEdge(node1, node2);
-      graph.addEdge(node1, node3, paint: Paint()..color = Colors.red);
-      graph.addEdge(node1, node4, paint: Paint()..color = Colors.blue);
-      graph.addEdge(node2, node5);
-      graph.addEdge(node2, node6);
-      graph.addEdge(node6, node7, paint: Paint()..color = Colors.red);
-      graph.addEdge(node6, node8, paint: Paint()..color = Colors.red);
-      graph.addEdge(node4, node9);
-      graph.addEdge(node4, node10, paint: Paint()..color = Colors.black);
-      graph.addEdge(node4, node11, paint: Paint()..color = Colors.red);
-      graph.addEdge(node11, node12);
-    });
+    final graph = Graph();
+    final node1 = Node.Id(1);
+    final node2 = Node.Id(2);
+    final node3 = Node.Id(3);
+    final node4 = Node.Id(4);
+    final node5 = Node.Id(5);
+    final node6 = Node.Id(6);
+    final node7 = Node.Id(7);
+    final node8 = Node.Id(8);
+    final node9 = Node.Id(9);
+    final node10 = Node.Id(10);
+    final node11 = Node.Id(11);
+    final node12 = Node.Id(12);
+    graph.addEdge(node1, node2);
+    graph.addEdge(node1, node3, paint: Paint()..color = Colors.red);
+    graph.addEdge(node1, node4, paint: Paint()..color = Colors.blue);
+    graph.addEdge(node2, node5);
+    graph.addEdge(node2, node6);
+    graph.addEdge(node6, node7, paint: Paint()..color = Colors.red);
+    graph.addEdge(node6, node8, paint: Paint()..color = Colors.red);
+    graph.addEdge(node4, node9);
+    graph.addEdge(node4, node10, paint: Paint()..color = Colors.black);
+    graph.addEdge(node4, node11, paint: Paint()..color = Colors.red);
+    graph.addEdge(node11, node12);
 
     test('MindMap Node positions are correct for Top_Bottom', () {
       final configuration = BuchheimWalkerConfiguration()
@@ -43,7 +41,8 @@ void main() {
         ..subtreeSeparation = (150)
         ..orientation = (BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM);
 
-      var algorithm = MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
+      var algorithm =
+          MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
 
       for (var i = 0; i < graph.nodeCount(); i++) {
         graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
@@ -84,13 +83,14 @@ void main() {
         ..subtreeSeparation = (150)
         ..orientation = (BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM);
 
-      var algorithm = MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
+      var algorithm =
+          MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
 
       // Should throw exception when cycle is detected
       expect(
-            () => algorithm.run(cyclicGraph, 0, 0),
+        () => algorithm.run(cyclicGraph, 0, 0),
         throwsA(isA<Exception>().having(
-              (e) => e.toString(),
+          (e) => e.toString(),
           'message',
           contains('Cyclic dependency detected'),
         )),
@@ -122,16 +122,18 @@ void main() {
         ..subtreeSeparation = (150)
         ..orientation = (BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM);
 
-      var algorithm = MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
+      var algorithm =
+          MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
 
       var graph = createGraph(1000);
       for (var i = 0; i < graph.nodeCount(); i++) {
         graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
       }
 
-      var stopwatch = Stopwatch()..start();
-      algorithm.run(graph, 0, 0);
-      var timeTaken = stopwatch.elapsed.inMilliseconds;
+      final timeTaken = measureBestSyncMillis(
+        () => algorithm.run(graph, 0, 0),
+        samples: 5,
+      );
 
       print('Timetaken $timeTaken for ${graph.nodeCount()} nodes');
 

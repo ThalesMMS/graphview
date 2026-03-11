@@ -29,8 +29,7 @@ class _NodeDraggingExampleState extends State<NodeDraggingExample> {
               children: [
                 Row(
                   children: [
-                    Text('Node Dragging: ',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Node Dragging: ', style: TextStyle(fontWeight: FontWeight.bold)),
                     Switch(
                       value: _draggingEnabled,
                       onChanged: (value) {
@@ -79,14 +78,12 @@ class _NodeDraggingExampleState extends State<NodeDraggingExample> {
                   _addDragEvent('Drag Start: Node ${node.key?.value}');
                 },
                 onNodeDragUpdate: (node, position) {
-                  _addDragEvent(
-                      'Drag Update: Node ${node.key?.value} at (${position.dx.toStringAsFixed(1)}, ${position.dy.toStringAsFixed(1)})');
+                  _addDragEvent('Drag Update: Node ${node.key?.value} at (${position.dx.toStringAsFixed(1)}, ${position.dy.toStringAsFixed(1)})');
                 },
                 onNodeDragEnd: (node, finalPosition) {
-                  _addDragEvent(
-                      'Drag End: Node ${node.key?.value} at (${finalPosition.dx.toStringAsFixed(1)}, ${finalPosition.dy.toStringAsFixed(1)})');
+                  _addDragEvent('Drag End: Node ${node.key?.value} at (${finalPosition.dx.toStringAsFixed(1)}, ${finalPosition.dy.toStringAsFixed(1)})');
                 },
-                isDraggablePredicate: (node) {
+                nodeLockPredicate: (node) {
                   // Check if node has locked property set to true
                   return !node.locked;
                 },
@@ -150,12 +147,10 @@ class _NodeDraggingExampleState extends State<NodeDraggingExample> {
                       itemCount: _dragEvents.length,
                       itemBuilder: (context, index) {
                         return Padding(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           child: Text(
                             _dragEvents[index],
-                            style: TextStyle(
-                                fontSize: 12, fontFamily: 'monospace'),
+                            style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
                           ),
                         );
                       },
@@ -219,7 +214,8 @@ class _NodeDraggingExampleState extends State<NodeDraggingExample> {
     graph.addEdge(node5, node6);
 
     // Use force-directed layout for natural positioning
-    var config = FruchtermanReingoldConfiguration()..iterations = 1000;
+    var config = FruchtermanReingoldConfiguration()
+      ..iterations = 1000;
     algorithm = FruchtermanReingoldAlgorithm(config);
   }
 

@@ -37,28 +37,18 @@ class GraphViewController {
   bool isNodeHidden(Node node) => hiddenBy.containsKey(node);
 
   bool isNodeVisible(Graph graph, Node node) {
-    return graph.contains(node: node) && !hiddenBy.containsKey(node);
+    return !hiddenBy.containsKey(node);
   }
 
   Node? findClosestVisibleAncestor(Graph graph, Node node) {
     var current = graph.predecessorsOf(node).firstOrNull;
-    final visited = <Node>{};
 
     // Walk up until we find a visible ancestor
     while (current != null) {
-      if (!visited.add(current)) {
-        return null;
-      }
-
       if (isNodeVisible(graph, current)) {
         return current; // Return the first (closest) visible ancestor
       }
-
-      final next = graph.predecessorsOf(current).firstOrNull;
-      if (next != null && visited.contains(next)) {
-        return null;
-      }
-      current = next;
+      current = graph.predecessorsOf(current).firstOrNull;
     }
 
     return null;
@@ -66,47 +56,27 @@ class GraphViewController {
 
   void _markDescendantsHiddenBy(
       Graph graph, Node collapsedNode, Node currentNode) {
-    final stack = <Node>[currentNode];
-    final visitedNodes = <Node>{};
-
-    while (stack.isNotEmpty) {
-      final node = stack.removeLast();
-      if (!visitedNodes.add(node)) {
-        continue;
+    for (final child in graph.successorsOf(currentNode)) {
+      // Only mark as hidden if:
+      // 1. Not already hidden, OR
+      // 2. Was hidden by a node that's no longer collapsed
+      if (!hiddenBy.containsKey(child) ||
+          !collapsedNodes.containsKey(hiddenBy[child])) {
+        hiddenBy[child] = collapsedNode;
       }
 
-      for (final child in graph.successorsOf(node)) {
-        // Only mark as hidden if:
-        // 1. Not already hidden, OR
-        // 2. Was hidden by a node that's no longer collapsed
-        if (!hiddenBy.containsKey(child) ||
-            !collapsedNodes.containsKey(hiddenBy[child])) {
-          hiddenBy[child] = collapsedNode;
-        }
-
-        // Traverse deeper only if this child isn't itself a collapsed node.
-        if (!collapsedNodes.containsKey(child)) {
-          stack.add(child);
-        }
+      // Recurse only if this child isn't itself a collapsed node
+      if (!collapsedNodes.containsKey(child)) {
+        _markDescendantsHiddenBy(graph, collapsedNode, child);
       }
     }
   }
 
   void _markExpandingDescendants(Graph graph, Node node) {
-    final stack = <Node>[node];
-    final visitedNodes = <Node>{};
-
-    while (stack.isNotEmpty) {
-      final current = stack.removeLast();
-      if (!visitedNodes.add(current)) {
-        continue;
-      }
-
-      for (final child in graph.successorsOf(current)) {
+    for (final child in graph.successorsOf(node)) {
         expandingNodes[child] = true;
         if (!collapsedNodes.containsKey(child)) {
-          stack.add(child);
-        }
+        _markExpandingDescendants(graph, child);
       }
     }
   }
@@ -115,7 +85,7 @@ class GraphViewController {
     collapsedNodes.remove(node);
     hiddenBy.removeWhere((hiddenNode, hiddenBy) => hiddenBy == node);
 
-    _clearExpandingNodesWhenIdle();
+    expandingNodes.clear();
     _markExpandingDescendants(graph, node);
 
     if (animate) {
@@ -125,7 +95,6 @@ class GraphViewController {
   }
 
   void collapseNode(Graph graph, Node node, {animate = false}) {
-    _clearExpandingNodesWhenIdle();
     if (graph.hasSuccessor(node)) {
       collapsedNodes[node] = true;
       collapsedNode = node;
@@ -135,6 +104,7 @@ class GraphViewController {
       _markDescendantsHiddenBy(graph, node, node);
       forceRecalculation();
     }
+    expandingNodes.clear();
   }
 
   void toggleNodeExpanded(Graph graph, Node node, {animate = false}) {
@@ -177,19 +147,14 @@ class GraphViewController {
 
   void setInitiallyCollapsedByKeys(Graph graph, Set<ValueKey> keys) {
     for (final key in keys) {
-      final node =
-          graph.nodes.firstWhereOrNull((element) => element.key == key);
-      if (node == null) {
-        assert(() {
-          debugPrint(
-              'GraphViewController.setInitiallyCollapsedByKeys: node with key $key not found');
-          return true;
-        }());
-        continue;
+      try {
+        final node = graph.getNodeUsingKey(key);
+        collapsedNodes[node] = true;
+        // Mark descendants as hidden by this node
+        _markDescendantsHiddenBy(graph, node, node);
+      } catch (e) {
+        // Node with key not found, ignore
       }
-      collapsedNodes[node] = true;
-      // Mark descendants as hidden by this node
-      _markDescendantsHiddenBy(graph, node, node);
     }
   }
 
@@ -197,15 +162,6 @@ class GraphViewController {
 
   void removeCollapsingNodes() {
     collapsedNode = null;
-    expandingNodes.clear();
-  }
-
-  void _clearExpandingNodesWhenIdle() {
-    final isNodeTransitionAnimating =
-        _state?._nodeController.isAnimating ?? false;
-    if (!isNodeTransitionAnimating) {
-      expandingNodes.clear();
-    }
   }
 
   void jumpToFocusedNode() {

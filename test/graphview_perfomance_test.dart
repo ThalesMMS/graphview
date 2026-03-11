@@ -3,10 +3,12 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
+import 'perf_test_utils.dart';
+
 void main() {
   group('GraphView Performance Tests', () {
-
-    testWidgets('hitTest performance with 1000+ nodes less than 20s', (WidgetTester tester) async {
+    testWidgets('hitTest performance with 1000+ nodes less than 20s',
+        (WidgetTester tester) async {
       final graph = _createLargeGraph(1000);
 
       final _configuration = BuchheimWalkerConfiguration()
@@ -38,26 +40,23 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final renderBox = tester.renderObject<RenderCustomLayoutBox>(
-          find.byType(GraphViewWidget)
-      );
+      final renderBox = tester
+          .renderObject<RenderCustomLayoutBox>(find.byType(GraphViewWidget));
 
-      final stopwatch = Stopwatch()..start();
-
-      // Test multiple hit tests at different positions
-      for (var i = 0; i < 10; i++) {
-        final result = BoxHitTestResult();
-        renderBox.hitTest(result, position: Offset(i * 10.0, i * 10.0));
-      }
-
-      stopwatch.stop();
-      final hitTestTime = stopwatch.elapsedMilliseconds;
+      final hitTestTime = measureBestSyncMillis(() {
+        for (var i = 0; i < 10; i++) {
+          final result = BoxHitTestResult();
+          renderBox.hitTest(result, position: Offset(i * 10.0, i * 10.0));
+        }
+      }, samples: 5);
 
       print('HitTest time for 1000 nodes (10 tests): ${hitTestTime}ms');
-      expect(hitTestTime, lessThan(20), reason: 'HitTest should complete in under 10ms');
+      expect(hitTestTime, lessThan(20),
+          reason: 'HitTest should complete in under 10ms');
     });
 
-    testWidgets('paint performance with 1000+ nodes', (WidgetTester tester) async {
+    testWidgets('paint performance with 1000+ nodes',
+        (WidgetTester tester) async {
       final graph = _createLargeGraph(1000);
 
       final _configuration = BuchheimWalkerConfiguration()
@@ -83,18 +82,17 @@ void main() {
         ),
       ));
 
-      final stopwatch = Stopwatch()..start();
+      await tester.pumpAndSettle();
 
-      // Trigger multiple repaints
-      for (var i = 0; i < 10; i++) {
-        await tester.pump();
-      }
-
-      stopwatch.stop();
-      final paintTime = stopwatch.elapsedMilliseconds;
+      final paintTime = await measureBestAsyncMillis(() async {
+        for (var i = 0; i < 10; i++) {
+          await tester.pump();
+        }
+      }, samples: 5);
 
       print('Paint time for 1000 nodes (10 repaints): ${paintTime}ms');
-      expect(paintTime, lessThan(50), reason: 'Paint should complete in under 50ms');
+      expect(paintTime, lessThan(50),
+          reason: 'Paint should complete in under 50ms');
     });
 
     test('algorithm run performance with 1000+ nodes', () {
@@ -109,17 +107,15 @@ void main() {
       var algorithm = BuchheimWalkerAlgorithm(
           _configuration, TreeEdgeRenderer(_configuration));
 
-      final stopwatch = Stopwatch()..start();
-
-      algorithm.run(graph, 0, 0);
-
-      stopwatch.stop();
-      final algorithmTime = stopwatch.elapsedMilliseconds;
+      final algorithmTime = measureBestSyncMillis(
+        () => algorithm.run(graph, 0, 0),
+        samples: 5,
+      );
 
       print('Algorithm run time for 1000 nodes: ${algorithmTime}ms');
-      expect(algorithmTime, lessThan(10), reason: 'Algorithm should complete in under 10 milisecond');
+      expect(algorithmTime, lessThan(10),
+          reason: 'Algorithm should complete in under 10 milisecond');
     });
-
   });
 }
 

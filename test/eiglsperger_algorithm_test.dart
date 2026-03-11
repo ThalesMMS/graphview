@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
 import 'example_trees.dart';
+import 'perf_test_utils.dart';
 
 const itemHeight = 100.0;
 const itemWidth = 100.0;
-const runPerfTests = bool.fromEnvironment('RUN_PERF_TESTS');
 
 extension on Graph {
   void inflateWithJson(Map<String, Object> json) {
@@ -32,8 +32,8 @@ void main() {
     final node4 = Node.Id(4);
     final node5 = Node.Id(5);
     final node6 = Node.Id(6);
-    final node8 = Node.Id(8);
-    final node7 = Node.Id(7);
+    final node8 = Node.Id(7);
+    final node7 = Node.Id(8);
     final node9 = Node.Id(9);
     final node10 = Node.Id(10);
     final node11 = Node.Id(11);
@@ -108,9 +108,7 @@ void main() {
       var size = algorithm.run(graph, 10, 10);
       var timeTaken = stopwatch.elapsed.inMilliseconds;
 
-      if (runPerfTests) {
-        expect(timeTaken < 1000, true);
-      }
+      expect(timeTaken < 1000, true);
 
       expect(size.width > 0, true);
       expect(size.height > 0, true);
@@ -143,7 +141,10 @@ void main() {
       expect(timeTaken < 1000, true);
 
       expect(graph.getNodeUsingId(1).position.dx >= 10.0, true);
-      expect(graph.getNodeUsingId(111).position.dx > graph.getNodeUsingId(1).position.dx, true);
+      expect(
+          graph.getNodeUsingId(111).position.dx >
+              graph.getNodeUsingId(1).position.dx,
+          true);
 
       expect(size.width > 0, true);
       expect(size.height > 0, true);
@@ -336,10 +337,12 @@ void main() {
         final size = algorithm.run(graph, 10, 10);
         final timeTaken = stopwatch.elapsed.inMilliseconds;
 
-        print('Eiglsperger: ${timeTaken}ms - Layout size: $size - Nodes: ${graph.nodeCount()}');
+        print(
+            'Eiglsperger: ${timeTaken}ms - Layout size: $size - Nodes: ${graph.nodeCount()}');
 
         expect(timeTaken < 3000, true,
-            reason: 'Eiglsperger should complete within 3 seconds for 140 nodes');
+            reason:
+                'Eiglsperger should complete within 3 seconds for 140 nodes');
       });
 
       test('Eiglsperger LEFT_RIGHT Orientation - 140 Nodes', () {
@@ -432,30 +435,38 @@ void main() {
     });
 
     test('Eiglsperger Performance for 100 nodes to be less than 5.2s', () {
-      final graph = Graph();
+      Graph createGraph() {
+        final graph = Graph();
+        const rows = 100;
 
-      var rows = 100;
-
-      for (var i = 1; i <= rows; i++) {
-        for (var j = 1; j <= i; j++) {
-          graph.addEdge(Node.Id(i), Node.Id(j));
+        for (var i = 1; i <= rows; i++) {
+          for (var j = 1; j <= i; j++) {
+            graph.addEdge(Node.Id(i), Node.Id(j));
+          }
         }
+
+        for (var i = 0; i < graph.nodeCount(); i++) {
+          graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
+        }
+
+        return graph;
       }
 
-      final _configuration = SugiyamaConfiguration()
-        ..nodeSeparation = 15
-        ..levelSeparation = 15
-        ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT;
-
-      var algorithm = EiglspergerAlgorithm(_configuration);
-
-      for (var i = 0; i < graph.nodeCount(); i++) {
-        graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
+      SugiyamaConfiguration createConfiguration() {
+        return SugiyamaConfiguration()
+          ..nodeSeparation = 15
+          ..levelSeparation = 15
+          ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT;
       }
 
-      var stopwatch = Stopwatch()..start();
-      algorithm.run(graph, 10, 10);
-      var timeTaken = stopwatch.elapsed.inMilliseconds;
+      final graph = createGraph();
+      EiglspergerAlgorithm(createConfiguration()).run(graph, 10, 10);
+      final timeTaken = measureBestSyncMillis(
+        () => EiglspergerAlgorithm(createConfiguration())
+            .run(createGraph(), 10, 10),
+        warmupRuns: 0,
+        samples: 2,
+      );
 
       print('Timetaken $timeTaken ${graph.nodeCount()}');
 

@@ -3,7 +3,6 @@ part of graphview;
 class Graph {
   final List<Node> _nodes = [];
   final Set<Node> _nodeSet = {};
-  final Map<Node, Node> _canonicalNodes = {};
   final List<Edge> _edges = [];
   List<GraphObserver> graphObserver = [];
 
@@ -14,11 +13,13 @@ class Graph {
   // Cache
   final Map<Node, List<Node>> _successorCache = {};
   final Map<Node, List<Node>> _predecessorCache = {};
+  final Map<Node, List<Edge>> _outEdgeCache = {};
+  final Map<Node, List<Edge>> _inEdgeCache = {};
   bool _cacheValid = false;
 
-  UnmodifiableListView<Node> get nodes => UnmodifiableListView(_nodes);
+  List<Node> get nodes => _nodes;
 
-  UnmodifiableListView<Edge> get edges => UnmodifiableListView(_edges);
+  List<Edge> get edges => _edges;
 
   var isTree = false;
 
@@ -27,7 +28,6 @@ class Graph {
   void addNode(Node node) {
     _nodes.add(node);
     _nodeSet.add(node);
-    _canonicalNodes.putIfAbsent(node, () => node);
     _cacheValid = false;
     _generation++;
     notifyGraphObserver();
@@ -44,7 +44,6 @@ class Graph {
 
     _nodes.remove(node);
     _nodeSet.remove(node);
-    _canonicalNodes.remove(node);
     _edges
         .removeWhere((edge) => edge.source == node || edge.destination == node);
     _cacheValid = false;
@@ -54,25 +53,6 @@ class Graph {
 
   void removeNodes(List<Node> nodes) => nodes.forEach((it) => removeNode(it));
 
-  void clear() {
-    _nodes.clear();
-    _nodeSet.clear();
-    _canonicalNodes.clear();
-    _edges.clear();
-    _successorCache.clear();
-    _predecessorCache.clear();
-    _cacheValid = false;
-    _generation++;
-    notifyGraphObserver();
-  }
-
-  /// Adds an edge between [source] and [destination].
-  ///
-  /// Note on deduplication: `Graph` uses [Edge.==] when deciding whether an
-  /// edge already exists (`addEdgeS` checks `_edges.contains(edge)`). If you
-  /// mix keyed and unkeyed edges between the same endpoints, they are treated
-  /// as different edges and may both be kept. Use a consistent edge-keying
-  /// strategy (all keyed or all unkeyed) within a graph.
   Edge addEdge(Node source, Node destination,
       {Paint? paint,
       String? label,
@@ -80,7 +60,8 @@ class Graph {
       EdgeLabelPosition? labelPosition,
       bool? labelFollowsEdgeDirection,
       Widget? labelWidget,
-      EdgeRenderer? renderer}) {
+      EdgeRenderer? renderer,
+      Offset? controlPoint}) {
     final edge = Edge(source, destination,
         paint: paint,
         label: label,
@@ -88,7 +69,8 @@ class Graph {
         labelPosition: labelPosition,
         labelFollowsEdgeDirection: labelFollowsEdgeDirection,
         labelWidget: labelWidget,
-        renderer: renderer);
+        renderer: renderer,
+        controlPoint: controlPoint);
     addEdgeS(edge);
     return edge;
   }
@@ -97,23 +79,20 @@ class Graph {
     var sourceSet = false;
     var destinationSet = false;
 
-    // Use canonical map for O(1) canonical instance lookup.
-    final canonicalSource = _canonicalNodes[edge.source];
-    if (canonicalSource != null) {
-      edge.source = canonicalSource;
+    // Use Set lookup for O(1) existence check
+    if (_nodeSet.contains(edge.source)) {
+      edge.source = _nodes.firstWhere((node) => node == edge.source);
       sourceSet = true;
     }
 
-    final canonicalDestination = _canonicalNodes[edge.destination];
-    if (canonicalDestination != null) {
-      edge.destination = canonicalDestination;
+    if (_nodeSet.contains(edge.destination)) {
+      edge.destination = _nodes.firstWhere((node) => node == edge.destination);
       destinationSet = true;
     }
 
     if (!sourceSet) {
       _nodes.add(edge.source);
       _nodeSet.add(edge.source);
-      _canonicalNodes.putIfAbsent(edge.source, () => edge.source);
       sourceSet = true;
       if (!destinationSet && edge.destination == edge.source) {
         destinationSet = true;
@@ -122,7 +101,6 @@ class Graph {
     if (!destinationSet) {
       _nodes.add(edge.destination);
       _nodeSet.add(edge.destination);
-      _canonicalNodes.putIfAbsent(edge.destination, () => edge.destination);
       destinationSet = true;
     }
 
@@ -148,7 +126,6 @@ class Graph {
     _edges.removeWhere(
         (edge) => edge.source == predecessor && edge.destination == current);
     _cacheValid = false;
-    _generation++;
   }
 
   // Called by algorithms after modifying node positions in-place
@@ -181,15 +158,21 @@ class Graph {
   void _buildCache() {
     _successorCache.clear();
     _predecessorCache.clear();
+    _outEdgeCache.clear();
+    _inEdgeCache.clear();
 
     for (var node in _nodes) {
       _successorCache[node] = [];
       _predecessorCache[node] = [];
+      _outEdgeCache[node] = [];
+      _inEdgeCache[node] = [];
     }
 
     for (var edge in _edges) {
       _successorCache[edge.source]!.add(edge.destination);
       _predecessorCache[edge.destination]!.add(edge.source);
+      _outEdgeCache[edge.source]!.add(edge);
+      _inEdgeCache[edge.destination]!.add(edge);
     }
 
     _cacheValid = true;
@@ -225,11 +208,15 @@ class Graph {
   Node getNodeUsingId(dynamic id) =>
       _nodes.firstWhere((element) => element.key == ValueKey(id));
 
-  List<Edge> getOutEdges(Node node) =>
-      _edges.where((element) => element.source == node).toList();
+  List<Edge> getOutEdges(Node node) {
+    if (!_cacheValid) _buildCache();
+    return _outEdgeCache[node] ?? const <Edge>[];
+  }
 
-  List<Edge> getInEdges(Node node) =>
-      _edges.where((element) => element.destination == node).toList();
+  List<Edge> getInEdges(Node node) {
+    if (!_cacheValid) _buildCache();
+    return _inEdgeCache[node] ?? const <Edge>[];
+  }
 
   void notifyGraphObserver() => graphObserver.forEach((element) {
         element.notifyGraphInvalidated();
@@ -365,6 +352,9 @@ class Edge {
   // Custom renderer
   EdgeRenderer? renderer;
 
+  // Optional explicit control point for editor-owned edge curves.
+  Offset? controlPoint;
+
   Edge(this.source, this.destination,
       {this.key,
       this.paint,
@@ -373,28 +363,12 @@ class Edge {
       this.labelPosition,
       this.labelFollowsEdgeDirection,
       this.labelWidget,
-      this.renderer});
+      this.renderer,
+      this.controlPoint});
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-    if (other is! Edge) {
-      return false;
-    }
-
-    // If either edge has an explicit key, key identity defines equality.
-    // This means keyed-vs-unkeyed edges are not equal. To avoid surprising
-    // behavior in deduplication/contains checks, create edges consistently
-    // (either all keyed or all unkeyed) for a given graph.
-    if (key != null || other.key != null) {
-      return key == other.key;
-    }
-
-    // Otherwise, compare structural edge identity.
-    return source == other.source && destination == other.destination;
-  }
+  bool operator ==(covariant Edge other) =>
+      identical(this, other) || hashCode == other.hashCode;
 
   @override
   int get hashCode => key?.hashCode ?? Object.hash(source, destination);

@@ -1,15 +1,6 @@
 part of graphview;
 
-abstract class LayeredNodeData {
-  Set<Node> get reversed;
-  bool get isDummy;
-  int get layer;
-  set layer(int value);
-  bool get isReversed;
-}
-
-abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
-    TEdgeData> extends Algorithm {
+abstract class LayeredAlgorithmBase extends Algorithm {
   Set<Node> stack = {};
   Set<Node> visited = {};
   List<List<Node>> layers = [];
@@ -17,22 +8,16 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
   late Graph graph;
   var nodeCount = 1;
 
-  int get dummyId {
-    // Ensure generated IDs do not collide with existing node hash codes in this graph.
-    while (graph.nodes.any((node) => node.hashCode == nodeCount)) {
-      nodeCount++;
-    }
-    return nodeCount++;
-  }
+  int get dummyId => 'Dummy ${nodeCount++}'.hashCode;
 
   // Abstract getter for configuration to be implemented by subclasses
   SugiyamaConfiguration get configuration;
 
   // Abstract getter for nodeData to be implemented by subclasses
-  Map<Node, TNodeData> get nodeData;
+  Map<Node, dynamic> get nodeData;
 
   // Abstract getter for edgeData to be implemented by subclasses
-  Map<Edge, TEdgeData> get edgeData;
+  Map<Edge, dynamic> get edgeData;
 
   bool isVertical() {
     return OrientationUtils.isVertical(configuration.orientation);
@@ -64,9 +49,9 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
   }
 
   void shiftCoordinates(double shiftX, double shiftY) {
-    layers.forEach((arrayList) {
+    layers.forEach((List<Node?> arrayList) {
       arrayList.forEach((it) {
-        it.position = Offset(it.x + shiftX, it.y + shiftY);
+        it!.position = Offset(it.x + shiftX, it.y + shiftY);
       });
     });
   }
@@ -81,11 +66,6 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
       final target = edge.destination;
       if (stack.contains(target)) {
         final storedData = edgeData.remove(edge);
-        if (storedData == null) {
-          throw StateError(
-            'Missing edge metadata while reversing edge $edge in cycle removal',
-          );
-        }
         graph.removeEdge(edge);
         final reversedEdge = graph.addEdge(target, node);
         edgeData[reversedEdge] = storedData;
@@ -106,15 +86,15 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
     var vertical = isVertical();
     for (var i = 0; i < k; i++) {
       var level = layers[i];
-      var maxHeight = 0.0;
+      var maxHeight = 0;
       level.forEach((node) {
         var h = nodeData[node]!.isDummy
-            ? 0.0
+            ? 0
             : vertical
                 ? node.height
                 : node.width;
         if (h > maxHeight) {
-          maxHeight = h;
+          maxHeight = h.toInt();
         }
         node.y = yPos;
       });
@@ -127,11 +107,11 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
 
   // Abstract method to create edge data with bend points
   // Subclasses must implement this to create their specific edge data type
-  TEdgeData createEdgeDataWithBendPoints(List<double> bendPoints);
+  dynamic createEdgeDataWithBendPoints(List<double> bendPoints);
 
   // Abstract method to get bend points from edge data
   // Subclasses must implement this to access bend points from their specific edge data type
-  List<double> getBendPointsFromEdgeData(TEdgeData edgeData);
+  List<double> getBendPointsFromEdgeData(dynamic edgeData);
 
   void denormalize() {
     // Remove dummy nodes and create bend points for articulated edges
@@ -143,27 +123,15 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
         if (nodeData[current]!.isDummy) {
           final predecessor = graph.predecessorsOf(current)[0];
           final successor = graph.successorsOf(current)[0];
-          final edgeId = graph.getEdgeBetween(predecessor, current);
-          final existingEdgeData = edgeId != null ? edgeData[edgeId] : null;
-          final bendPoints = existingEdgeData != null
-              ? getBendPointsFromEdgeData(existingEdgeData)
-              : <double>[];
+          final bendPoints = getBendPointsFromEdgeData(
+              edgeData[graph.getEdgeBetween(predecessor, current)!]!);
 
-          final targetX = current.x + predecessor.width / 2;
-          final targetY = current.y;
-          var hasTargetPair = false;
-          for (var i = 0; i + 1 < bendPoints.length; i += 2) {
-            if (bendPoints[i] == targetX && bendPoints[i + 1] == targetY) {
-              hasTargetPair = true;
-              break;
-            }
-          }
-
-          if (!hasTargetPair) {
+          if (bendPoints.isEmpty ||
+              !bendPoints.contains(current.x + predecessor.width / 2)) {
             bendPoints.add(predecessor.x + predecessor.width / 2);
             bendPoints.add(predecessor.y + predecessor.height / 2);
-            bendPoints.add(targetX);
-            bendPoints.add(targetY);
+            bendPoints.add(current.x + predecessor.width / 2);
+            bendPoints.add(current.y);
           }
 
           if (!nodeData[predecessor]!.isDummy) {
@@ -179,14 +147,6 @@ abstract class LayeredAlgorithmBase<TNodeData extends LayeredNodeData,
             bendPoints.add(successor.x + successor.width / 2);
           }
           bendPoints.add(successor.y + successor.height / 2);
-
-          final successorEdgeId = graph.getEdgeBetween(current, successor);
-          if (edgeId != null) {
-            edgeData.remove(edgeId);
-          }
-          if (successorEdgeId != null) {
-            edgeData.remove(successorEdgeId);
-          }
 
           graph.removeEdgeFromPredecessor(predecessor, current);
           graph.removeEdgeFromPredecessor(current, successor);

@@ -1,7 +1,6 @@
 part of graphview;
 
-class SugiyamaAlgorithm
-    extends LayeredAlgorithmBase<SugiyamaNodeData, SugiyamaEdgeData> {
+class SugiyamaAlgorithm extends LayeredAlgorithmBase {
   final Map<Node, SugiyamaNodeData> _nodeData = {};
   final Map<Edge, SugiyamaEdgeData> _edgeData = {};
   final SugiyamaConfiguration _configuration;
@@ -31,8 +30,8 @@ class SugiyamaAlgorithm
   }
 
   @override
-  List<double> getBendPointsFromEdgeData(SugiyamaEdgeData edgeData) {
-    return edgeData.bendPoints;
+  List<double> getBendPointsFromEdgeData(dynamic edgeData) {
+    return (edgeData as SugiyamaEdgeData).bendPoints;
   }
 
   @override
@@ -273,21 +272,24 @@ class SugiyamaAlgorithm
         avgHeight = totalHeight / realNodes.length;
       }
 
-      for (var node in currentLayer) {
-        final edges = graph.edges
-            .where((element) =>
-                element.source == node &&
-                (nodeData[element.destination]!.layer - nodeData[node]!.layer)
-                        .abs() >
-                    1)
-            .toList();
+      final longEdgesBySource = <Node, List<Edge>>{};
+      for (final node in currentLayer) {
+        final longEdges = graph
+            .getOutEdges(node)
+            .where((edge) =>
+                (nodeData[edge.destination]!.layer - nodeData[node]!.layer)
+                    .abs() >
+                1)
+            .toList(growable: false);
+        if (longEdges.isNotEmpty) {
+          longEdgesBySource[node] = longEdges;
+        }
+      }
 
-        final iterator = edges.iterator;
-
-        while (iterator.moveNext()) {
-          final edge = iterator.current;
-          final dummy = Node.Id(dummyId);
-          final dummyNodeData = SugiyamaNodeData(node.lineType);
+      for (final entry in longEdgesBySource.entries) {
+        for (final edge in entry.value) {
+          final dummy = Node.Id(dummyId.hashCode);
+          final dummyNodeData = SugiyamaNodeData(entry.key.lineType);
           dummyNodeData.isDummy = true;
           dummyNodeData.layer = indexNextLayer;
           nextLayer.add(dummy);
@@ -442,7 +444,7 @@ class SugiyamaAlgorithm
           final w = southernNodes[i + 1];
           if (crossingCount(indexMap, v, w) > crossingCount(indexMap, w, v)) {
             improved = true;
-            exchange(southernNodes, v, w);
+            _swapAt(southernNodes, i, i + 1);
             changed = true;
           }
         }
@@ -470,7 +472,7 @@ class SugiyamaAlgorithm
           final w = lowerLayer[i + 1];
 
           // Perform a trial swap
-          exchange(lowerLayer, v, w);
+          _swapAt(lowerLayer, i, i + 1);
 
           // Recalculate total crossings with the more efficient method.
           var crossingsAfter = _getBiLayerCrossings(upperLayer, lowerLayer);
@@ -483,7 +485,7 @@ class SugiyamaAlgorithm
                 crossingsAfter; // Update the baseline crossing count
           } else {
             // The swap was not beneficial, revert it.
-            exchange(lowerLayer, w, v);
+            _swapAt(lowerLayer, i, i + 1);
           }
         }
       }
@@ -497,27 +499,23 @@ class SugiyamaAlgorithm
       return 0;
     }
 
-    // Update positions in nodeData based on the current list order.
-    // This is crucial as the transpose function modifies the list directly.
     for (var i = 0; i < lowerLayer.length; i++) {
       nodeData[lowerLayer[i]]!.position = i;
     }
 
+    final lowerLayerSet = lowerLayer.toSet();
     var targetIndices = <int>[];
-    // Ensure upper layer nodes are sorted by their original position to maintain a stable sort.
-    var sortedUpperLayer = List<Node>.from(upperLayer)
+    final sortedUpperLayer = List<Node>.from(upperLayer)
       ..sort((a, b) => nodeData[a]!.position.compareTo(nodeData[b]!.position));
-
-    for (var source in sortedUpperLayer) {
-      var successors = successorsOf(source)
-          .where((succ) => lowerLayer.contains(succ))
-          .toList()
-        ..sort(
-            (a, b) => nodeData[a]!.position.compareTo(nodeData[b]!.position));
-
-      for (var successor in successors) {
-        targetIndices.add(nodeData[successor]!.position);
+    for (final source in sortedUpperLayer) {
+      final successorPositions = <int>[];
+      for (final successor in successorsOf(source)) {
+        if (lowerLayerSet.contains(successor)) {
+          successorPositions.add(nodeData[successor]!.position);
+        }
       }
+      successorPositions.sort();
+      targetIndices.addAll(successorPositions);
     }
 
     if (targetIndices.isNotEmpty) {
@@ -529,10 +527,8 @@ class SugiyamaAlgorithm
     return 0;
   }
 
-  void exchange(List<Node> nodes, Node v, Node w) {
-    var i = nodes.indexOf(v);
-    var j = nodes.indexOf(w);
-    var temp = nodes[i];
+  void _swapAt(List<Node> nodes, int i, int j) {
+    final temp = nodes[i];
     nodes[i] = nodes[j];
     nodes[j] = temp;
   }
@@ -576,7 +572,7 @@ class SugiyamaAlgorithm
   void coordinateAssignment() {
     assignX();
     assignY();
-    var offset = getOffset(graph);
+    var offset = getOffset(graph, needReverseOrder());
 
     graph.nodes.forEach((v) {
       v.position = getPosition(v, offset);
@@ -1015,11 +1011,8 @@ class SugiyamaAlgorithm
           }
           currentNode = align[currentNode]!;
         } while (currentNode != v);
-      } catch (e, stackTrace) {
-        debugPrint(
-            'Error in placeBlock for root node $v while processing node $currentNode: $e');
-        debugPrint('$stackTrace');
-        rethrow;
+      } catch (e) {
+        print(e);
       }
     }
   }
@@ -1171,7 +1164,7 @@ class SugiyamaAlgorithm
     }
   }
 
-  Offset getOffset(Graph graph) {
+  Offset getOffset(Graph graph, bool needReverseOrder) {
     return OrientationUtils.getOffset(graph, configuration.orientation);
   }
 
@@ -1194,9 +1187,7 @@ class SugiyamaAlgorithm
   }
 
   @override
-  void setDimensions(double width, double height) {
-    // Intentionally no-op: Sugiyama layout does not depend on viewport size.
-  }
+  void setDimensions(double width, double height) {}
 }
 
 class AccumulatorTree {

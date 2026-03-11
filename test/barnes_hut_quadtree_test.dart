@@ -1,15 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
 void main() {
-  final runPerfTests = () {
-    final value = Platform.environment['RUN_PERF_TESTS']?.toLowerCase();
-    return value == 'true' || value == '1';
-  }();
-
   group('BarnesHutQuadtree', () {
     test('Empty quadtree is initially empty and a leaf', () {
       final quadtree = BarnesHutQuadtree(Rect.fromLTWH(0, 0, 100, 100));
@@ -249,9 +242,7 @@ void main() {
 
       print('Inserted ${nodes.length} nodes in $timeTaken ms');
 
-      if (runPerfTests) {
-        expect(timeTaken < 500, true);
-      }
+      expect(timeTaken < 500, true);
       expect(quadtree.totalMass, equals(1000.0));
     });
 
@@ -274,9 +265,7 @@ void main() {
 
       print('Recalculated mass and center for 1000 nodes in $timeTaken ms');
 
-      if (runPerfTests) {
-        expect(timeTaken < 100, true);
-      }
+      expect(timeTaken < 100, true);
       expect(quadtree.totalMass, equals(1000.0));
     });
 

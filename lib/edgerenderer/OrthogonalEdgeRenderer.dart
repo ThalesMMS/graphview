@@ -10,6 +10,8 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
 
   OrthogonalEdgeRenderer(this.configuration);
 
+  var linePath = Path();
+
   void render(Canvas canvas, Graph graph, Paint paint) {
     graph.edges.forEach((edge) {
       renderEdge(canvas, edge, paint);
@@ -26,9 +28,40 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
     if (source == destination) {
       final loopPath = buildSelfLoopPath(edge, arrowLength: 0.0);
       if (loopPath != null) {
-        drawStyledPath(canvas, loopPath.path, edgePaint,
-            lineType: destination.lineType);
-        _renderPathLabel(canvas, edge, loopPath.path);
+        drawStyledPath(canvas, loopPath.path, edgePaint, lineType: destination.lineType);
+
+        // Render label for self-loop edge
+        if (edge.label != null && edge.label!.isNotEmpty) {
+          final metrics = loopPath.path.computeMetrics().toList();
+          if (metrics.isNotEmpty) {
+            final metric = metrics.first;
+
+            // Calculate position based on labelPosition
+            final labelPos = edge.labelPosition ?? EdgeLabelPosition.middle;
+            double positionFactor;
+            if (labelPos == EdgeLabelPosition.start) {
+              positionFactor = 0.2;
+            } else if (labelPos == EdgeLabelPosition.end) {
+              positionFactor = 0.8;
+            } else {
+              positionFactor = 0.5; // middle (default)
+            }
+
+            final position = metric.length * positionFactor;
+            final tangent = metric.getTangentForOffset(position);
+            if (tangent != null) {
+              final rotationAngle = (edge.labelFollowsEdgeDirection ?? true)
+                ? tangent.angle
+                : null; // null means no rotation (horizontal)
+              renderEdgeLabel(
+                canvas,
+                edge,
+                tangent.position,
+                rotationAngle,
+              );
+            }
+          }
+        }
       }
       return;
     }
@@ -36,8 +69,8 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
     final sourcePos = getNodePosition(source);
     final destinationPos = getNodePosition(destination);
 
-    final linePath =
-        buildOrthogonalPath(source, destination, sourcePos, destinationPos);
+    linePath.reset();
+    buildOrthogonalPath(source, destination, sourcePos, destinationPos);
 
     // Check if the destination node has a specific line type
     final lineType = destination.lineType;
@@ -49,40 +82,42 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
       canvas.drawPath(linePath, edgePaint);
     }
 
-    _renderPathLabel(canvas, edge, linePath);
-  }
+    // Render label for regular edge
+    if (edge.label != null && edge.label!.isNotEmpty) {
+      final metrics = linePath.computeMetrics().toList();
+      if (metrics.isNotEmpty) {
+        final metric = metrics.first;
 
-  void _renderPathLabel(Canvas canvas, Edge edge, Path path) {
-    if (edge.label == null || edge.label!.isEmpty) {
-      return;
+        // Calculate position based on labelPosition
+        final labelPos = edge.labelPosition ?? EdgeLabelPosition.middle;
+        double positionFactor;
+        if (labelPos == EdgeLabelPosition.start) {
+          positionFactor = 0.2;
+        } else if (labelPos == EdgeLabelPosition.end) {
+          positionFactor = 0.8;
+        } else {
+          positionFactor = 0.5; // middle (default)
+        }
+
+        final position = metric.length * positionFactor;
+        final tangent = metric.getTangentForOffset(position);
+        if (tangent != null) {
+          final rotationAngle = (edge.labelFollowsEdgeDirection ?? true)
+            ? tangent.angle
+            : null; // null means no rotation (horizontal)
+          renderEdgeLabel(
+            canvas,
+            edge,
+            tangent.position,
+            rotationAngle,
+          );
+        }
+      }
     }
-
-    final metrics = path.computeMetrics().toList();
-    if (metrics.isEmpty) {
-      return;
-    }
-
-    final metric = metrics.first;
-    final labelPos = edge.labelPosition ?? EdgeLabelPosition.middle;
-    final positionFactor = labelPos == EdgeLabelPosition.start
-        ? 0.2
-        : labelPos == EdgeLabelPosition.end
-            ? 0.8
-            : 0.5;
-    final position = metric.length * positionFactor;
-    final tangent = metric.getTangentForOffset(position);
-    if (tangent == null) {
-      return;
-    }
-
-    final rotationAngle =
-        (edge.labelFollowsEdgeDirection ?? true) ? tangent.angle : null;
-    renderEdgeLabel(canvas, edge, tangent.position, rotationAngle);
   }
 
   /// Draws a path with the specified line type by converting it to line segments
-  void _drawStyledPath(
-      Canvas canvas, Path path, Paint paint, LineType lineType) {
+  void _drawStyledPath(Canvas canvas, Path path, Paint paint, LineType lineType) {
     // Extract path points for styled rendering
     final points = _extractPathPoints(path);
 
@@ -106,7 +141,6 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
     for (var metric in metrics) {
       final length = metric.length;
       const sampleDistance = 10.0; // Sample every 10 pixels
-      const epsilon = 0.001;
       var distance = 0.0;
 
       while (distance <= length) {
@@ -117,29 +151,18 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
         distance += sampleDistance;
       }
 
-      // Add the final point only if it was not already sampled.
-      final sampledDistance = distance - sampleDistance;
-      if (sampledDistance < length - epsilon) {
-        final finalTangent = metric.getTangentForOffset(length);
-        if (finalTangent != null &&
-            (points.isEmpty ||
-                (points.last - finalTangent.position).distance > epsilon)) {
-          points.add(finalTangent.position);
-        }
+      // Add the final point
+      final finalTangent = metric.getTangentForOffset(length);
+      if (finalTangent != null) {
+        points.add(finalTangent.position);
       }
     }
 
     return points;
   }
 
-  /// Builds an orthogonal (L-shaped Manhattan) path between two nodes.
-  Path buildOrthogonalPath(
-    Node source,
-    Node destination,
-    Offset sourcePos,
-    Offset destinationPos,
-  ) {
-    final path = Path();
+  /// Builds an orthogonal (L-shaped Manhattan) path between two nodes
+  void buildOrthogonalPath(Node source, Node destination, Offset sourcePos, Offset destinationPos) {
     final sourceCenterX = sourcePos.dx + source.width * 0.5;
     final sourceCenterY = sourcePos.dy + source.height * 0.5;
     final destinationCenterX = destinationPos.dx + destination.width * 0.5;
@@ -148,10 +171,10 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
     // Handle case where nodes are at same position
     if ((sourceCenterX - destinationCenterX).abs() < 0.001 &&
         (sourceCenterY - destinationCenterY).abs() < 0.001) {
-      path
+      linePath
         ..moveTo(sourceCenterX, sourceCenterY)
         ..lineTo(destinationCenterX, destinationCenterY);
-      return path;
+      return;
     }
 
     // Calculate start and end points for the path
@@ -169,15 +192,19 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
       // Horizontal-first routing: go horizontal to midpoint, then vertical, then horizontal
       final midX = (startX + endX) * 0.5;
 
-      // Handle collinear nodes (same Y coordinate) with a straight segment
+      // Handle collinear nodes (same Y coordinate) by adding a minimal vertical offset
       if ((endY - startY).abs() < 0.001) {
-        // Nodes are horizontally aligned; avoid detours that can introduce spikes.
-        path
+        // Nodes are horizontally aligned, add a small vertical offset for visibility
+        final offset = 10.0;
+        linePath
           ..moveTo(startX, startY)
+          ..lineTo(midX, startY)
+          ..lineTo(midX, startY + offset)
+          ..lineTo(midX, endY)
           ..lineTo(endX, endY);
       } else {
         // Normal L-shaped path
-        path
+        linePath
           ..moveTo(startX, startY)
           ..lineTo(midX, startY)
           ..lineTo(midX, endY)
@@ -189,26 +216,22 @@ class OrthogonalEdgeRenderer extends EdgeRenderer {
 
       // Handle collinear nodes (same X coordinate) by adding a minimal horizontal offset
       if ((endX - startX).abs() < 0.001) {
-        // Nodes are vertically aligned, keep the offset consistent through the bend.
+        // Nodes are vertically aligned, add a small horizontal offset for visibility
         final offset = 10.0;
-        final offsetSign = endY >= startY ? 1.0 : -1.0;
-        final offsetX = startX + (offset * offsetSign);
-        path
+        linePath
           ..moveTo(startX, startY)
           ..lineTo(startX, midY)
-          ..lineTo(offsetX, midY)
-          ..lineTo(offsetX, endY)
+          ..lineTo(startX + offset, midY)
+          ..lineTo(endX, midY)
           ..lineTo(endX, endY);
       } else {
         // Normal L-shaped path
-        path
+        linePath
           ..moveTo(startX, startY)
           ..lineTo(startX, midY)
           ..lineTo(endX, midY)
           ..lineTo(endX, endY);
       }
     }
-
-    return path;
   }
 }

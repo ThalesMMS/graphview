@@ -1037,10 +1037,8 @@ class EiglspergerAlgorithm extends Algorithm {
     });
   }
 
-  /// Resolves node overlaps within each layer based on layout orientation.
+  /// Resolves node overlaps within each layer by shifting nodes horizontally
   void resolveNodeOverlaps() {
-    final verticalLayout = isVertical();
-
     // Group nodes by layer
     final nodesByLayer = <int, List<Node>>{};
     for (var node in graph.nodes) {
@@ -1054,31 +1052,20 @@ class EiglspergerAlgorithm extends Algorithm {
     for (var layer in nodesByLayer.keys) {
       final nodesInLayer = nodesByLayer[layer]!;
 
-      if (verticalLayout) {
-        // Top-bottom / bottom-top: resolve overlaps along x using node width.
-        nodesInLayer.sort((a, b) => a.x.compareTo(b.x));
+      // Sort nodes by x-coordinate
+      nodesInLayer.sort((a, b) => a.x.compareTo(b.x));
 
-        for (var i = 0; i < nodesInLayer.length - 1; i++) {
-          final current = nodesInLayer[i];
-          final next = nodesInLayer[i + 1];
-          final minX = current.x + current.width + configuration.nodeSeparation;
+      // Shift overlapping nodes
+      for (var i = 0; i < nodesInLayer.length - 1; i++) {
+        final current = nodesInLayer[i];
+        final next = nodesInLayer[i + 1];
 
-          if (next.x < minX) {
-            next.x = minX;
-          }
-        }
-      } else {
-        // Left-right / right-left: resolve overlaps along y using node height.
-        nodesInLayer.sort((a, b) => a.y.compareTo(b.y));
+        // Calculate minimum required separation
+        final minX = current.x + current.width + configuration.nodeSeparation;
 
-        for (var i = 0; i < nodesInLayer.length - 1; i++) {
-          final current = nodesInLayer[i];
-          final next = nodesInLayer[i + 1];
-          final minY = current.y + current.height + configuration.nodeSeparation;
-
-          if (next.y < minY) {
-            next.y = minY;
-          }
+        // If next node overlaps or is too close, shift it
+        if (next.x < minX) {
+          next.x = minX;
         }
       }
     }

@@ -21,6 +21,7 @@ part 'edgerenderer/EdgeRenderer.dart';
 part 'edgerenderer/CurvedEdgeRenderer.dart';
 part 'edgerenderer/AnimatedEdgeRenderer.dart';
 part 'edgerenderer/AdaptiveEdgeRenderer.dart';
+part 'edgerenderer/AnimatedAdaptiveEdgeRenderer.dart';
 part 'edgerenderer/OrthogonalEdgeRenderer.dart';
 part 'edgerenderer/routing/VectorUtils.dart';
 part 'edgerenderer/routing/EdgeRoutingConfig.dart';

@@ -3,7 +3,7 @@ part of graphview;
 /// Configuration for individual node dragging functionality.
 ///
 /// This class controls the behavior of node dragging within the graph,
-/// including callbacks for drag events and node draggability rules.
+/// including callbacks for drag events and node locking capabilities.
 class NodeDraggingConfiguration {
   /// Default enabled state for node dragging.
   static const bool DEFAULT_ENABLED = true;
@@ -34,17 +34,16 @@ class NodeDraggingConfiguration {
 
   /// Predicate function to determine if a node can be dragged.
   ///
-  /// When provided, this function is called to decide whether dragging is
-  /// allowed for a given node.
+  /// When provided, this function is called to check if a node is locked.
   /// Return true to allow dragging, false to prevent it.
   /// If null, all nodes can be dragged (when [enabled] is true).
-  bool Function(Node node)? isDraggablePredicate;
+  bool Function(Node node)? nodeLockPredicate;
 
   NodeDraggingConfiguration({
     this.enabled = DEFAULT_ENABLED,
     this.onNodeDragStart,
     this.onNodeDragUpdate,
     this.onNodeDragEnd,
-    this.isDraggablePredicate,
+    this.nodeLockPredicate,
   });
 }

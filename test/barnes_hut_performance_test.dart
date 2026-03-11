@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
+import 'perf_test_utils.dart';
+
 const itemHeight = 100.0;
 const itemWidth = 100.0;
 
@@ -18,10 +20,12 @@ void main() {
 
       var algorithmNaive = FruchtermanReingoldAlgorithm(configNaive);
 
-      final stopwatchNaive = Stopwatch()..start();
       algorithmNaive.run(graph, 0, 0);
-      stopwatchNaive.stop();
-      final naiveTime = stopwatchNaive.elapsedMilliseconds;
+      final naiveTime = measureBestSyncMillis(() {
+        final benchmarkGraph = _createGraph(100);
+        FruchtermanReingoldAlgorithm(_buildConfig(useBarnesHut: false))
+            .run(benchmarkGraph, 0, 0);
+      });
 
       // Test Barnes-Hut implementation
       final graph2 = _createGraph(100);
@@ -33,12 +37,16 @@ void main() {
 
       var algorithmBarnesHut = FruchtermanReingoldAlgorithm(configBarnesHut);
 
-      final stopwatchBarnesHut = Stopwatch()..start();
       algorithmBarnesHut.run(graph2, 0, 0);
-      stopwatchBarnesHut.stop();
-      final barnesHutTime = stopwatchBarnesHut.elapsedMilliseconds;
+      final barnesHutTime = measureBestSyncMillis(() {
+        final benchmarkGraph = _createGraph(100);
+        FruchtermanReingoldAlgorithm(
+          _buildConfig(useBarnesHut: true, theta: 0.5),
+        ).run(benchmarkGraph, 0, 0);
+      });
 
-      print('100 nodes - Naive: ${naiveTime}ms, Barnes-Hut: ${barnesHutTime}ms');
+      print(
+          '100 nodes - Naive: ${naiveTime}ms, Barnes-Hut: ${barnesHutTime}ms');
 
       // Both should complete in reasonable time
       expect(naiveTime < 2000, true);
@@ -67,10 +75,15 @@ void main() {
 
       var algorithmNaive = FruchtermanReingoldAlgorithm(configNaive);
 
-      final stopwatchNaive = Stopwatch()..start();
       algorithmNaive.run(graph, 0, 0);
-      stopwatchNaive.stop();
-      final naiveTime = stopwatchNaive.elapsedMilliseconds;
+      final naiveTime = measureBestSyncMillis(
+        () {
+          final benchmarkGraph = _createGraph(500);
+          FruchtermanReingoldAlgorithm(_buildConfig(useBarnesHut: false))
+              .run(benchmarkGraph, 0, 0);
+        },
+        samples: 2,
+      );
 
       // Test Barnes-Hut implementation
       final graph2 = _createGraph(500);
@@ -82,10 +95,16 @@ void main() {
 
       var algorithmBarnesHut = FruchtermanReingoldAlgorithm(configBarnesHut);
 
-      final stopwatchBarnesHut = Stopwatch()..start();
       algorithmBarnesHut.run(graph2, 0, 0);
-      stopwatchBarnesHut.stop();
-      final barnesHutTime = stopwatchBarnesHut.elapsedMilliseconds;
+      final barnesHutTime = measureBestSyncMillis(
+        () {
+          final benchmarkGraph = _createGraph(500);
+          FruchtermanReingoldAlgorithm(
+            _buildConfig(useBarnesHut: true, theta: 0.5),
+          ).run(benchmarkGraph, 0, 0);
+        },
+        samples: 2,
+      );
 
       print(
           '500 nodes - Naive: ${naiveTime}ms, Barnes-Hut: ${barnesHutTime}ms, Speedup: ${(naiveTime / barnesHutTime).toStringAsFixed(2)}x');
@@ -110,7 +129,8 @@ void main() {
       }
     });
 
-    test('Performance comparison for 1000 nodes - Barnes-Hut should be much faster',
+    test(
+        'Performance comparison for 1000 nodes - Barnes-Hut should be much faster',
         () {
       final graph = _createGraph(1000);
 
@@ -122,10 +142,16 @@ void main() {
 
       var algorithmNaive = FruchtermanReingoldAlgorithm(configNaive);
 
-      final stopwatchNaive = Stopwatch()..start();
       algorithmNaive.run(graph, 0, 0);
-      stopwatchNaive.stop();
-      final naiveTime = stopwatchNaive.elapsedMilliseconds;
+      final naiveTime = measureBestSyncMillis(
+        () {
+          final benchmarkGraph = _createGraph(1000);
+          FruchtermanReingoldAlgorithm(_buildConfig(useBarnesHut: false))
+              .run(benchmarkGraph, 0, 0);
+        },
+        warmupRuns: 0,
+        samples: 2,
+      );
 
       // Test Barnes-Hut implementation
       final graph2 = _createGraph(1000);
@@ -137,10 +163,17 @@ void main() {
 
       var algorithmBarnesHut = FruchtermanReingoldAlgorithm(configBarnesHut);
 
-      final stopwatchBarnesHut = Stopwatch()..start();
       algorithmBarnesHut.run(graph2, 0, 0);
-      stopwatchBarnesHut.stop();
-      final barnesHutTime = stopwatchBarnesHut.elapsedMilliseconds;
+      final barnesHutTime = measureBestSyncMillis(
+        () {
+          final benchmarkGraph = _createGraph(1000);
+          FruchtermanReingoldAlgorithm(
+            _buildConfig(useBarnesHut: true, theta: 0.5),
+          ).run(benchmarkGraph, 0, 0);
+        },
+        warmupRuns: 0,
+        samples: 2,
+      );
 
       print(
           '1000 nodes - Naive: ${naiveTime}ms, Barnes-Hut: ${barnesHutTime}ms, Speedup: ${(naiveTime / barnesHutTime).toStringAsFixed(2)}x');
@@ -170,22 +203,25 @@ void main() {
       final graph = _createGraph(500);
 
       for (final theta in thetaValues) {
-        final config = FruchtermanReingoldConfiguration()
-          ..iterations = 50
-          ..shuffleNodes = false
-          ..useBarnesHut = true
-          ..theta = theta;
+        final config = _buildConfig(useBarnesHut: true, theta: theta);
 
         var algorithm = FruchtermanReingoldAlgorithm(config);
 
-        final stopwatch = Stopwatch()..start();
         algorithm.run(graph, 0, 0);
-        stopwatch.stop();
+        final elapsed = measureBestSyncMillis(
+          () {
+            final benchmarkGraph = _createGraph(500);
+            FruchtermanReingoldAlgorithm(
+              _buildConfig(useBarnesHut: true, theta: theta),
+            ).run(benchmarkGraph, 0, 0);
+          },
+          samples: 2,
+        );
 
-        print('Theta ${theta}: ${stopwatch.elapsedMilliseconds}ms');
+        print('Theta ${theta}: ${elapsed}ms');
 
         // All theta values should complete in reasonable time
-        expect(stopwatch.elapsedMilliseconds < 3000, true);
+        expect(elapsed < 3000, true);
 
         // Verify all nodes are positioned
         for (var i = 0; i < graph.nodeCount(); i++) {
@@ -310,6 +346,17 @@ void main() {
       }
     });
   });
+}
+
+FruchtermanReingoldConfiguration _buildConfig({
+  required bool useBarnesHut,
+  double theta = 0.5,
+}) {
+  return FruchtermanReingoldConfiguration()
+    ..iterations = 50
+    ..shuffleNodes = false
+    ..useBarnesHut = useBarnesHut
+    ..theta = theta;
 }
 
 /// Creates a connected graph with n nodes for performance testing

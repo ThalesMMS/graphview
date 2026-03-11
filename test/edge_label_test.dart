@@ -368,7 +368,7 @@ void main() {
       expect(edge.labelWidget, widget);
     });
 
-    test('Graph stores labeled edges', () {
+    test('Graph with labeled edges can be serialized and deserialized', () {
       final graph = Graph();
       final node1 = Node.Id('A');
       final node2 = Node.Id('B');

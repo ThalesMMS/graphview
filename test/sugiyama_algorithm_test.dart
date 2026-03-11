@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
 import 'example_trees.dart';
+import 'perf_test_utils.dart';
 
 const itemHeight = 100.0;
 const itemWidth = 100.0;
@@ -854,22 +855,23 @@ void main() {
         graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
       }
 
-      var stopwatch = Stopwatch()..start();
-      algorithm.run(graph, 10, 10);
-      var timeTaken = stopwatch.elapsed.inMilliseconds;
+      final timeTaken = measureBestSyncMillis(
+        () => algorithm.run(graph, 10, 10),
+        samples: 3,
+      );
 
       print('Timetaken $timeTaken ${graph.nodeCount()}');
 
-    expect(graph.getNodeAtPosition(0).position, Offset(10.0, 1965.0));
-    expect(graph.getNodeAtPosition(6).position, Offset(815.0, 1965.0));
-    expect(graph.getNodeAtPosition(10).position, Offset(1160.0, 2080.0));
-    expect(graph.getNodeAtPosition(13).position, Offset(1275.0, 2367.5));
-    expect(graph.getNodeAtPosition(22).position, Offset(1620.0, 2885.0));
-    expect(graph.getNodeAtPosition(50).position, Offset(1505.0, 1390.0));
-    expect(graph.getNodeAtPosition(67).position, Offset(2655.0, 1850.0));
-    expect(graph.getNodeAtPosition(100).position, Offset(815.0, 412.5));
-    expect(graph.getNodeAtPosition(122).position, Offset(1735.0,2310.0));
-  });
+      expect(graph.getNodeAtPosition(0).position, Offset(10.0, 1965.0));
+      expect(graph.getNodeAtPosition(6).position, Offset(815.0, 1965.0));
+      expect(graph.getNodeAtPosition(10).position, Offset(1160.0, 2080.0));
+      expect(graph.getNodeAtPosition(13).position, Offset(1275.0, 2367.5));
+      expect(graph.getNodeAtPosition(22).position, Offset(1620.0, 2885.0));
+      expect(graph.getNodeAtPosition(50).position, Offset(1505.0, 1390.0));
+      expect(graph.getNodeAtPosition(67).position, Offset(2655.0, 1850.0));
+      expect(graph.getNodeAtPosition(100).position, Offset(815.0, 412.5));
+      expect(graph.getNodeAtPosition(122).position, Offset(1735.0, 2310.0));
+    });
 
     test('Sugiyama child nodes never overlaps', () {
       for (final json in exampleTrees) {
@@ -904,31 +906,39 @@ void main() {
     });
 
     test('Sugiyama Performance for 100 nodes to be less than 5.2s', () {
-      final graph = Graph();
+      Graph createGraph() {
+        final graph = Graph();
+        const rows = 100;
 
-      var rows = 100;
-
-      for (var i = 1; i <= rows; i++) {
-        for (var j = 1; j <= i; j++) {
-          graph.addEdge(Node.Id(i), Node.Id(j));
+        for (var i = 1; i <= rows; i++) {
+          for (var j = 1; j <= i; j++) {
+            graph.addEdge(Node.Id(i), Node.Id(j));
+          }
         }
+
+        for (var i = 0; i < graph.nodeCount(); i++) {
+          graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
+        }
+
+        return graph;
       }
 
-      final _configuration = SugiyamaConfiguration()
-        ..nodeSeparation = 15
-        ..levelSeparation = 15
-        ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT
-        ..postStraighten = true;
-
-      var algorithm = SugiyamaAlgorithm(_configuration);
-
-      for (var i = 0; i < graph.nodeCount(); i++) {
-        graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
+      SugiyamaConfiguration createConfiguration() {
+        return SugiyamaConfiguration()
+          ..nodeSeparation = 15
+          ..levelSeparation = 15
+          ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT
+          ..postStraighten = true;
       }
 
-      var stopwatch = Stopwatch()..start();
-      algorithm.run(graph, 10, 10);
-      var timeTaken = stopwatch.elapsed.inMilliseconds;
+      final graph = createGraph();
+      SugiyamaAlgorithm(createConfiguration()).run(graph, 10, 10);
+      final timeTaken = measureBestSyncMillis(
+        () =>
+            SugiyamaAlgorithm(createConfiguration()).run(createGraph(), 10, 10),
+        warmupRuns: 0,
+        samples: 2,
+      );
 
       print('Timetaken $timeTaken ${graph.nodeCount()}');
 

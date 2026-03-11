@@ -20,8 +20,6 @@ part of graphview;
 /// );
 /// ```
 class AdaptiveEdgeRenderer extends EdgeRenderer {
-  static const double _bezierCurveOffsetFactor = 0.10;
-
   final EdgeRoutingConfig config;
   final bool noArrow;
 
@@ -50,89 +48,179 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
   @override
   void renderEdge(Canvas canvas, Edge edge, Paint paint) {
     // Check if edge has a custom renderer - if so, delegate to it
-    if (edge.renderer != null && edge.renderer != this) {
+    if (edge.renderer != null) {
       edge.renderer!.renderEdge(canvas, edge, paint);
       return;
     }
 
-    // Calculate repulsion offsets for all edges once per render cycle
-    if (!_repulsionCalculated && config.enableRepulsion && _graph != null) {
-      _calculateRepulsionForAllEdges();
-      _repulsionCalculated = true;
-    }
-
-    var source = edge.source;
-    var destination = edge.destination;
-
     final currentPaint = (edge.paint ?? paint)..style = PaintingStyle.stroke;
+    prepareForRenderCycle();
 
-    // Handle self-loops
-    if (source == destination) {
-      final loopResult = buildSelfLoopPath(
-        edge,
-        arrowLength: noArrow ? 0.0 : 10.0,
-      );
-
-      if (loopResult != null) {
-        canvas.drawPath(loopResult.path, currentPaint);
-
-        if (!noArrow) {
-          final trianglePaint = Paint()
-            ..color = edge.paint?.color ?? paint.color
-            ..style = PaintingStyle.fill;
-          drawTriangle(
-            canvas,
-            trianglePaint,
-            loopResult.arrowBase.dx,
-            loopResult.arrowBase.dy,
-            loopResult.arrowTip.dx,
-            loopResult.arrowTip.dy,
-          );
-        }
-
-        return;
-      }
+    final geometry = buildEdgeGeometry(
+      edge,
+      arrowLength: noArrow ? 0.0 : 10.0,
+    );
+    if (geometry == null) {
+      return;
     }
 
-    // Calculate connection points based on anchor mode
-    final destCenter = getNodeCenter(destination);
-    final sourceCenter = getNodeCenter(source);
+    paintEdgeGeometry(canvas, edge, currentPaint, geometry);
 
-    // Calculate edge index for parallel edge distribution
-    final edgeIndex = _calculateEdgeIndex(edge);
-
-    final sourcePoint =
-        calculateSourceConnectionPoint(edge, destCenter, edgeIndex);
-    final destPoint =
-        calculateDestinationConnectionPoint(edge, sourceCenter, edgeIndex);
-
-    // Route the edge path based on routing mode
-    var path = routeEdgePath(sourcePoint, destPoint, edge);
-
-    // Apply edge repulsion if enabled
-    if (config.enableRepulsion && _graph != null) {
-      path = _applyRepulsionToPath(edge, path, sourcePoint, destPoint);
-    }
-
-    // Draw the path
-    canvas.drawPath(path, currentPaint);
-
-    // Draw arrow if not disabled
     if (!noArrow) {
       final trianglePaint = Paint()
         ..color = edge.paint?.color ?? paint.color
         ..style = PaintingStyle.fill;
-
-      final arrowPoints = _resolveArrowPoints(path, sourcePoint, destPoint);
-      drawTriangle(
-        canvas,
-        trianglePaint,
-        arrowPoints[0].dx,
-        arrowPoints[0].dy,
-        arrowPoints[1].dx,
-        arrowPoints[1].dy,
-      );
+      paintEdgeArrow(canvas, edge, trianglePaint, geometry);
     }
+
+    final labelGeometry = buildLabelGeometry(edge, geometry.path);
+    if (labelGeometry != null) {
+      paintEdgeLabel(canvas, edge, labelGeometry);
+    }
+  }
+
+  /// Prepares repulsion state before an edge is painted.
+  void prepareForRenderCycle() {
+    if (!_repulsionCalculated && config.enableRepulsion && _graph != null) {
+      _calculateRepulsionForAllEdges();
+      _repulsionCalculated = true;
+    }
+  }
+
+  /// Resolves the final rendered geometry for the provided edge.
+  EdgePathGeometry? buildEdgeGeometry(
+    Edge edge, {
+    double arrowLength = 10.0,
+  }) {
+    if (edge.source == edge.destination) {
+      return _buildSelfLoopGeometry(edge, arrowLength: arrowLength);
+    }
+
+    if (edge.controlPoint != null) {
+      return _buildManualControlPointGeometry(edge, arrowLength: arrowLength);
+    }
+
+    return _buildAutoRoutedGeometry(edge, arrowLength: arrowLength);
+  }
+
+  /// Paints the resolved edge path.
+  void paintEdgeGeometry(
+    Canvas canvas,
+    Edge edge,
+    Paint paint,
+    EdgePathGeometry geometry,
+  ) {
+    canvas.drawPath(geometry.path, paint);
+  }
+
+  /// Paints the edge arrowhead using the resolved edge geometry.
+  void paintEdgeArrow(
+    Canvas canvas,
+    Edge edge,
+    Paint paint,
+    EdgePathGeometry geometry,
+  ) {
+    drawTriangle(
+      canvas,
+      paint,
+      geometry.arrowBase.dx,
+      geometry.arrowBase.dy,
+      geometry.arrowTip.dx,
+      geometry.arrowTip.dy,
+    );
+  }
+
+  /// Paints the edge label using geometry derived from the final path.
+  void paintEdgeLabel(
+    Canvas canvas,
+    Edge edge,
+    EdgeLabelGeometry geometry,
+  ) {
+    renderEdgeLabel(canvas, edge, geometry.position, geometry.angle);
+  }
+
+  EdgePathGeometry? _buildSelfLoopGeometry(
+    Edge edge, {
+    required double arrowLength,
+  }) {
+    final loopResult = buildSelfLoopPath(
+      edge,
+      arrowLength: arrowLength,
+    );
+    if (loopResult == null) {
+      return null;
+    }
+
+    final geometry = buildPathGeometry(
+      loopResult.path,
+      arrowLength: arrowLength,
+      isSelfLoop: true,
+    );
+    return EdgePathGeometry(
+      path: geometry.path,
+      start: geometry.start,
+      end: geometry.end,
+      arrowBase: loopResult.arrowBase,
+      arrowTip: loopResult.arrowTip,
+      isSelfLoop: true,
+    );
+  }
+
+  EdgePathGeometry _buildManualControlPointGeometry(
+    Edge edge, {
+    required double arrowLength,
+  }) {
+    final controlPoint = edge.controlPoint!;
+    final sourceCenter = getNodeCenter(edge.source);
+    final destCenter = getNodeCenter(edge.destination);
+    final sourcePoint = _calculateDynamicAnchor(
+      edge.source,
+      sourceCenter,
+      controlPoint,
+    );
+    final destPoint = _calculateDynamicAnchor(
+      edge.destination,
+      destCenter,
+      controlPoint,
+    );
+
+    final path = Path()
+      ..moveTo(sourcePoint.dx, sourcePoint.dy)
+      ..quadraticBezierTo(
+        controlPoint.dx,
+        controlPoint.dy,
+        destPoint.dx,
+        destPoint.dy,
+      );
+
+    return buildPathGeometry(path, arrowLength: arrowLength);
+  }
+
+  EdgePathGeometry _buildAutoRoutedGeometry(
+    Edge edge, {
+    required double arrowLength,
+  }) {
+    final destCenter = getNodeCenter(edge.destination);
+    final sourceCenter = getNodeCenter(edge.source);
+    final edgeIndex = _calculateEdgeIndex(edge);
+    final sourcePoint = calculateSourceConnectionPoint(
+      edge,
+      destCenter,
+      edgeIndex,
+    );
+    final destPoint = calculateDestinationConnectionPoint(
+      edge,
+      sourceCenter,
+      edgeIndex,
+    );
+
+    var path = routeEdgePath(sourcePoint, destPoint, edge);
+
+    if (config.enableRepulsion && _graph != null) {
+      path = _applyRepulsionToPath(edge, path, sourcePoint, destPoint);
+    }
+
+    return buildPathGeometry(path, arrowLength: arrowLength);
   }
 
   @override
@@ -321,8 +409,8 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
   /// Builds a bezier path with control points for smooth curves.
   ///
   /// Creates cubic bezier curves with control points offset 1/3 of the
-  /// total edge length from the start and end points along the edge direction,
-  /// plus a perpendicular offset for visible curvature.
+  /// total edge length from the start and end points along the edge direction.
+  /// This creates smooth, natural-looking curves that respect the edge direction.
   Path _buildBezierPath(
       Offset sourcePoint, Offset destinationPoint, Edge edge) {
     final path = Path();
@@ -344,23 +432,17 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
     // Calculate control points offset 1/3 of the edge length from start/end
     // This creates a smooth curve that respects the edge direction
     final controlPointDistance = distance / 3.0;
-    final perpendicular = VectorUtils.perpendicular(normalized);
-    final curveOffset = perpendicular * (distance * _bezierCurveOffsetFactor);
 
     // First control point: offset from source along edge direction
     final controlPoint1 = Offset(
-      sourcePoint.dx + normalized.dx * controlPointDistance + curveOffset.dx,
-      sourcePoint.dy + normalized.dy * controlPointDistance + curveOffset.dy,
+      sourcePoint.dx + normalized.dx * controlPointDistance,
+      sourcePoint.dy + normalized.dy * controlPointDistance,
     );
 
     // Second control point: offset from destination back along edge direction
     final controlPoint2 = Offset(
-      destinationPoint.dx -
-          normalized.dx * controlPointDistance +
-          curveOffset.dx,
-      destinationPoint.dy -
-          normalized.dy * controlPointDistance +
-          curveOffset.dy,
+      destinationPoint.dx - normalized.dx * controlPointDistance,
+      destinationPoint.dy - normalized.dy * controlPointDistance,
     );
 
     // Create cubic bezier curve
@@ -631,27 +713,35 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
     // Get all outgoing edges from the source node
     final outEdges = _graph!.getOutEdges(edge.source);
 
-    // Filter for edges going to the same destination
-    final parallelEdges =
-        outEdges.where((e) => e.destination == edge.destination).toList();
+    // Only distribute automatically routed edges; manual curves keep their
+    // explicit control points untouched.
+    final parallelEdges = outEdges
+        .where(
+          (e) =>
+              e.destination == edge.destination &&
+              e.source != e.destination &&
+              e.controlPoint == null,
+        )
+        .toList();
 
     // If only one edge, no distribution needed
     if (parallelEdges.length <= 1) {
       return 0;
     }
 
-    // Use graph insertion order for deterministic distribution and locate by identity.
-    // Do not rely on Edge.hashCode/== here because parallel edges may compare equal.
-    final index =
-        parallelEdges.indexWhere((candidate) => identical(candidate, edge));
+    // Find the index of this edge in the sorted list
+    // Sort by edge hashCode for consistent ordering
+    parallelEdges.sort((a, b) => a.hashCode.compareTo(b.hashCode));
+
+    final index = parallelEdges.indexOf(edge);
     if (index == -1) {
       return 0;
     }
 
     // Return centered index: for N edges, indices are -(N-1)/2, ..., -1, 0, 1, ..., (N-1)/2
     // This centers the edges around the base anchor point
-    final centerOffset = (parallelEdges.length - 1) / 2.0;
-    return (index - centerOffset).round();
+    final centerOffset = (parallelEdges.length - 1) / 2;
+    return index - centerOffset.floor();
   }
 
   /// Applies a perpendicular offset to the anchor point for parallel edge distribution.
@@ -842,37 +932,6 @@ class AdaptiveEdgeRenderer extends EdgeRenderer {
   /// This should be called by the render system when starting a new frame.
   void resetRepulsionCalculation() {
     _repulsionCalculated = false;
-  }
-
-  /// Resolves arrow base and tip from the rendered path end tangent.
-  ///
-  /// Falls back to source/destination points when path tangent extraction fails.
-  List<Offset> _resolveArrowPoints(
-      Path path, Offset sourcePoint, Offset destPoint) {
-    const arrowLength = 10.0;
-    final metrics = path.computeMetrics().toList();
-
-    for (var i = metrics.length - 1; i >= 0; i--) {
-      final metric = metrics[i];
-      if (metric.length < VectorUtils.epsilon) {
-        continue;
-      }
-
-      final arrowBaseOffset = max(0.0, metric.length - arrowLength);
-      final arrowBaseTangent = metric.getTangentForOffset(arrowBaseOffset);
-      final arrowTipTangent = metric.getTangentForOffset(metric.length);
-
-      if (arrowBaseTangent != null && arrowTipTangent != null) {
-        final arrowBase = arrowBaseTangent.position;
-        final arrowTip = arrowTipTangent.position;
-
-        if ((arrowTip - arrowBase).distance >= VectorUtils.epsilon) {
-          return [arrowBase, arrowTip];
-        }
-      }
-    }
-
-    return [sourcePoint, destPoint];
   }
 
   /// Draws a triangle (arrow head) at the end of an edge.

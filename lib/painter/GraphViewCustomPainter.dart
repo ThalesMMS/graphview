@@ -5,16 +5,13 @@ class GraphViewCustomPainter extends StatefulWidget {
   final FruchtermanReingoldAlgorithm algorithm;
   final Paint? paint;
   final NodeWidgetBuilder builder;
-  final bool animate;
-  final int stepMilis;
+  final stepMilis = 25;
 
   GraphViewCustomPainter({
     Key? key,
     required this.graph,
     required this.algorithm,
     this.paint,
-    this.animate = true,
-    this.stepMilis = 25,
     required this.builder,
   }) : super(key: key);
 
@@ -23,10 +20,7 @@ class GraphViewCustomPainter extends StatefulWidget {
 }
 
 class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
-  // Keeps a small margin so edges near (0,0) are not clipped by the canvas.
-  static const Offset _edgeLayerOffset = Offset(20, 20);
-
-  Timer? timer;
+  late Timer timer;
   late Graph graph;
   late FruchtermanReingoldAlgorithm algorithm;
 
@@ -36,60 +30,21 @@ class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
 
     algorithm = widget.algorithm;
     algorithm.init(graph);
-    if (widget.animate) {
-      startTimer();
-    }
+    startTimer();
 
     super.initState();
   }
 
   void startTimer() {
-    timer?.cancel();
-    timer =
-        Timer.periodic(Duration(milliseconds: widget.stepMilis), (tickTimer) {
-      if (!widget.animate) return;
-      final moved = algorithm.step(graph);
+    timer = Timer.periodic(Duration(milliseconds: widget.stepMilis), (timer) {
+      algorithm.step(graph);
       update();
-      if (!moved) {
-        tickTimer.cancel();
-      }
     });
   }
 
   @override
-  void didUpdateWidget(covariant GraphViewCustomPainter oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    graph = widget.graph;
-
-    if (widget.algorithm != algorithm) {
-      algorithm = widget.algorithm;
-      algorithm.init(graph);
-    }
-
-    if (oldWidget.stepMilis != widget.stepMilis) {
-      if (timer != null && timer!.isActive) {
-        timer!.cancel();
-      }
-      if (widget.animate) {
-        startTimer();
-      }
-      return;
-    }
-
-    if (widget.animate) {
-      if (timer == null || !timer!.isActive) {
-        startTimer();
-      }
-    } else {
-      if (timer != null && timer!.isActive) {
-        timer!.cancel();
-      }
-    }
-  }
-
-  @override
   void dispose() {
-    timer?.cancel();
+    timer.cancel();
     super.dispose();
   }
 
@@ -103,7 +58,7 @@ class _GraphViewCustomPainterState extends State<GraphViewCustomPainter> {
       children: [
         CustomPaint(
           size: MediaQuery.of(context).size,
-          painter: EdgeRender(algorithm, graph, _edgeLayerOffset, widget.paint),
+          painter: EdgeRender(algorithm, graph, Offset(20, 20), widget.paint),
         ),
         ...List<Widget>.generate(graph.nodeCount(), (index) {
           return Positioned(

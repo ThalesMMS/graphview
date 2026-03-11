@@ -92,7 +92,7 @@ class ArrowEdgeRenderer extends EdgeRenderer {
   @override
   void renderEdge(Canvas canvas, Edge edge, Paint paint) {
     // Check if edge has a custom renderer - if so, delegate to it
-    if (edge.renderer != null && edge.renderer != this) {
+    if (edge.renderer != null) {
       edge.renderer!.renderEdge(canvas, edge, paint);
       return;
     }
@@ -583,12 +583,8 @@ class ArrowEdgeRenderer extends EdgeRenderer {
       return 0;
     }
 
-    // Keep graph insertion order for deterministic placement and locate by identity.
-    // Do not rely on Edge.hashCode/== because parallel edges may compare equal.
-    final index = parallelEdges.indexWhere((candidate) => identical(candidate, edge));
-    if (index == -1) {
-      return 0;
-    }
+    parallelEdges.sort((a, b) => a.hashCode.compareTo(b.hashCode));
+    final index = parallelEdges.indexOf(edge);
     final centerOffset = (parallelEdges.length - 1) / 2;
     return index - centerOffset.floor();
   }

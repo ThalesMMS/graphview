@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
+import 'perf_test_utils.dart';
+
 const itemHeight = 100.0;
 const itemWidth = 100.0;
 
@@ -181,13 +183,17 @@ void main() {
         ..iterations = 50
         ..shuffleNodes = true;
 
-      var algorithm = FruchtermanReingoldAlgorithm(configuration);
-
       var graph = _createGraph(500);
-
-      var stopwatch = Stopwatch()..start();
-      algorithm.run(graph, 0, 0);
-      var timeTaken = stopwatch.elapsed.inMilliseconds;
+      FruchtermanReingoldAlgorithm(configuration).run(graph, 0, 0);
+      final timeTaken = measureBestSyncMillis(
+        () => FruchtermanReingoldAlgorithm(configuration).run(
+          _createGraph(500),
+          0,
+          0,
+        ),
+        warmupRuns: 0,
+        samples: 2,
+      );
 
       print('TimeTaken $timeTaken ms for ${graph.nodeCount()} nodes');
 
@@ -294,7 +300,8 @@ void main() {
       expect(size.height > 0, true);
     });
 
-    test('FruchtermanReingold cluster handling for disconnected components', () {
+    test('FruchtermanReingold cluster handling for disconnected components',
+        () {
       final graph = Graph();
 
       // First component
@@ -450,7 +457,8 @@ void main() {
       final positions = <String>{};
       for (var i = 0; i < graph.nodeCount(); i++) {
         final node = graph.getNodeAtPosition(i);
-        final posKey = '${node.x.toStringAsFixed(2)},${node.y.toStringAsFixed(2)}';
+        final posKey =
+            '${node.x.toStringAsFixed(2)},${node.y.toStringAsFixed(2)}';
         expect(positions.contains(posKey), false,
             reason: 'Nodes should not have identical positions');
         positions.add(posKey);
@@ -631,7 +639,8 @@ void main() {
       final positions = <String>{};
       for (var i = 0; i < graph.nodeCount(); i++) {
         final node = graph.getNodeAtPosition(i);
-        final posKey = '${node.x.toStringAsFixed(2)},${node.y.toStringAsFixed(2)}';
+        final posKey =
+            '${node.x.toStringAsFixed(2)},${node.y.toStringAsFixed(2)}';
         expect(positions.contains(posKey), false,
             reason: 'Nodes should not have identical positions');
         positions.add(posKey);
@@ -666,9 +675,11 @@ void main() {
         for (var i = 0; i < graph.nodeCount(); i++) {
           final node = graph.getNodeAtPosition(i);
           expect(node.x >= 0, true,
-              reason: 'Node ${i} should have valid x position with theta=$theta');
+              reason:
+                  'Node ${i} should have valid x position with theta=$theta');
           expect(node.y >= 0, true,
-              reason: 'Node ${i} should have valid y position with theta=$theta');
+              reason:
+                  'Node ${i} should have valid y position with theta=$theta');
         }
 
         expect(size.width > 0, true,

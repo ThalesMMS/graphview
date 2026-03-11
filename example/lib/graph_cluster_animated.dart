@@ -33,11 +33,12 @@ class _GraphScreenState extends State<GraphScreen> {
                 var edge = widget.graph.getNodeAtPosition(r.nextInt(widget.graph.nodeCount()));
                 print(edge);
                 widget.graph.addEdge(edge, node12);
+                setState(() {});
               });
             },
           ),
           IconButton(
-            icon: Icon(animated ? Icons.pause : Icons.play_arrow),
+            icon: Icon(Icons.animation),
             onPressed: () async {
               setState(() {
                 animated = !animated;
@@ -54,7 +55,6 @@ class _GraphScreenState extends State<GraphScreen> {
           child: GraphViewCustomPainter(
             graph: widget.graph,
             algorithm: widget.algorithm,
-            animate: animated,
             builder: (Node node) {
               // I can decide what widget should be shown here based on the id
               var a = node.key!.value as String;

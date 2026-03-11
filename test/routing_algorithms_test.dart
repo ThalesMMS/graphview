@@ -41,13 +41,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -56,7 +56,7 @@ void main() {
 
       // Path should be generated (we can't easily extract path points without Canvas,
       // but we can verify the renderer was created and method executes)
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
 
     test('creates L-shaped path for vertical nodes', () {
@@ -71,13 +71,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -85,7 +85,7 @@ void main() {
       );
 
       // Path should be generated
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
 
     test('creates L-shaped path for diagonal nodes', () {
@@ -100,13 +100,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -114,7 +114,7 @@ void main() {
       );
 
       // Path should be generated with right angles
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
 
     test('handles collinear horizontal nodes with offset', () {
@@ -129,13 +129,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path (should add minimal offset for visibility)
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -143,7 +143,7 @@ void main() {
       );
 
       // Path should be generated with offset for collinear nodes
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
 
     test('handles collinear vertical nodes with offset', () {
@@ -158,13 +158,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path (should add minimal offset for visibility)
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -172,7 +172,7 @@ void main() {
       );
 
       // Path should be generated with offset for collinear nodes
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
 
     test('handles nodes at same position', () {
@@ -187,13 +187,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path (should handle gracefully)
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -201,13 +201,12 @@ void main() {
       );
 
       // Path should be generated even for same position
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
   });
 
   group('OrthogonalEdgeRenderer - Path Direction Logic', () {
-    test('uses horizontal-first routing when horizontal distance is greater',
-        () {
+    test('uses horizontal-first routing when horizontal distance is greater', () {
       final graph = Graph();
       final node1 = Node.Id(1);
       node1.position = Offset(0, 50);
@@ -220,13 +219,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -234,7 +233,7 @@ void main() {
       );
 
       // Should use horizontal-first routing
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
 
     test('uses vertical-first routing when vertical distance is greater', () {
@@ -250,13 +249,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -264,7 +263,7 @@ void main() {
       );
 
       // Should use vertical-first routing
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
   });
 
@@ -308,7 +307,7 @@ void main() {
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -317,7 +316,7 @@ void main() {
 
       // Edge should have label
       expect(edge.label, equals('Test Label'));
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
   });
 
@@ -330,8 +329,7 @@ void main() {
       final renderer = OrthogonalEdgeRenderer(config);
 
       expect(renderer.configuration, equals(config));
-      expect(
-          renderer.configuration.routingMode, equals(RoutingMode.orthogonal));
+      expect(renderer.configuration.routingMode, equals(RoutingMode.orthogonal));
     });
 
     test('works with different anchor modes', () {
@@ -354,14 +352,14 @@ void main() {
       graph.addNode(node2);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
         node2.position,
       );
 
-      expect(path, isNotNull);
+      expect(renderer.linePath, isNotNull);
     });
   });
 
@@ -378,13 +376,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -392,7 +390,7 @@ void main() {
       );
 
       // Extract path points by sampling the path using metrics
-      final points = extractPathPoints(path);
+      final points = extractPathPoints(renderer.linePath);
 
       // Verify we have at least 3 points for an L-shaped path
       expect(points.length, greaterThanOrEqualTo(3));
@@ -425,8 +423,7 @@ void main() {
           expect(
             normalizedDot.abs() < 0.1 || normalizedDot.abs() > 0.9,
             isTrue,
-            reason:
-                'Segments should be perpendicular or parallel in orthogonal routing',
+            reason: 'Segments should be perpendicular or parallel in orthogonal routing',
           );
         }
       }
@@ -444,13 +441,13 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
+      final edge = graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build the path
-      final path = renderer.buildOrthogonalPath(
+      renderer.buildOrthogonalPath(
         node1,
         node2,
         node1.position,
@@ -458,7 +455,7 @@ void main() {
       );
 
       // Extract path points by sampling the path using metrics
-      final points = extractPathPoints(path);
+      final points = extractPathPoints(renderer.linePath);
 
       // Verify segments are horizontal or vertical
       if (points.length >= 2) {
@@ -477,8 +474,7 @@ void main() {
           expect(
             isHorizontal || isVertical,
             isTrue,
-            reason:
-                'Orthogonal paths should only have horizontal or vertical segments',
+            reason: 'Orthogonal paths should only have horizontal or vertical segments',
           );
         }
       }
@@ -498,20 +494,19 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      graph.addEdge(node1, node2);
-      graph.addEdge(node2, node1);
+      final edge1 = graph.addEdge(node1, node2);
+      final edge2 = graph.addEdge(node2, node1);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build paths for both edges
-      final path1 = renderer.buildOrthogonalPath(
-          node1, node2, node1.position, node2.position);
-      expect(path1, isNotNull);
+      renderer.buildOrthogonalPath(node1, node2, node1.position, node2.position);
+      expect(renderer.linePath, isNotNull);
 
-      final path2 = renderer.buildOrthogonalPath(
-          node2, node1, node2.position, node1.position);
-      expect(path2, isNotNull);
+      renderer.linePath.reset();
+      renderer.buildOrthogonalPath(node2, node1, node2.position, node1.position);
+      expect(renderer.linePath, isNotNull);
     });
   });
 
@@ -547,10 +542,8 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint =
-          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint =
-          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       // Route the path with bezier
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
@@ -589,10 +582,8 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint =
-          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint =
-          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       // Route the path with bezier
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
@@ -657,10 +648,8 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint =
-          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint =
-          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
 
@@ -697,19 +686,15 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint =
-          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint =
-          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
 
       expect(path, isNotNull);
     });
 
-    test(
-        'orthogonal routing mode in AdaptiveEdgeRenderer creates L-shaped paths',
-        () {
+    test('orthogonal routing mode in AdaptiveEdgeRenderer creates L-shaped paths', () {
       final graph = Graph();
       final node1 = Node.Id(1);
       node1.position = Offset(0, 0);
@@ -739,10 +724,8 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint =
-          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint =
-          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
 
