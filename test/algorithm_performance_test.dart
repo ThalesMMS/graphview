@@ -4,11 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
-import 'perf_test_utils.dart';
-
 const itemHeight = 100.0;
 const itemWidth = 100.0;
-const samples = 2;
+const runs = 5;
 
 void main() {
   Graph _createGraph(int n) {
@@ -30,32 +28,32 @@ void main() {
     final algorithms = {
       'Buchheim': BuchheimWalkerAlgorithm(BuchheimWalkerConfiguration(), null),
       'Balloon': BalloonLayoutAlgorithm(BuchheimWalkerConfiguration(), null),
-      'RadialTree':
-          RadialTreeLayoutAlgorithm(BuchheimWalkerConfiguration(), null),
-      'TidierTree':
-          TidierTreeLayoutAlgorithm(BuchheimWalkerConfiguration(), null),
+      'RadialTree': RadialTreeLayoutAlgorithm(BuchheimWalkerConfiguration(), null),
+      'TidierTree': TidierTreeLayoutAlgorithm(BuchheimWalkerConfiguration(), null),
       'Eiglsperger': EiglspergerAlgorithm(SugiyamaConfiguration()),
       'Sugiyama': SugiyamaAlgorithm(SugiyamaConfiguration()),
       'Circle': CircleLayoutAlgorithm(CircleLayoutConfiguration(), null),
     };
 
-    final results = <String, int>{};
+    final results = <String, double>{};
+    final graph = _createGraph(1000);
 
     for (final entry in algorithms.entries) {
-      results[entry.key] = measureBestSyncMillis(
-        () => entry.value.run(_createGraph(1000), 0, 0),
-        warmupRuns: 0,
-        samples: samples,
-      );
+      final times = <int>[];
+      for (var i = 0; i < runs; i++) {
+        final sw = Stopwatch()..start();
+        entry.value.run(graph, 0, 0);
+        times.add(sw.elapsed.inMilliseconds);
+      }
+      // results[entry.key] = times.reduce((a, b) => a + b) / times.length;
+      results[entry.key] = times.reduce((a, b) => a + b).toDouble();
     }
 
-    final sorted = results.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
+    final sorted = results.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
 
-    print('\nPerformance Results (best of $samples runs):');
+    print('\nPerformance Results (${runs} runs avg):');
     for (var i = 0; i < sorted.length; i++) {
-      print(
-          '${(i + 1).toString().padLeft(2)}. ${sorted[i].key.padRight(12)}: ${sorted[i].value.toStringAsFixed(1)} ms');
+      print('${(i + 1).toString().padLeft(2)}. ${sorted[i].key.padRight(12)}: ${sorted[i].value.toStringAsFixed(1)} ms');
     }
 
     for (final result in results.values) {

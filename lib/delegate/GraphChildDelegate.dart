@@ -6,7 +6,6 @@ class GraphChildDelegate {
   final NodeWidgetBuilder builder;
   GraphViewController? controller;
   final bool centerGraph;
-  final bool includeAllVisibleNodes;
   final NodeDraggingConfiguration? nodeDraggingConfig;
   Graph? _cachedVisibleGraph;
   bool _needsRecalculation = true;
@@ -17,7 +16,6 @@ class GraphChildDelegate {
     required this.builder,
     required this.controller,
     this.centerGraph = false,
-    this.includeAllVisibleNodes = false,
     this.nodeDraggingConfig,
   });
 
@@ -44,21 +42,8 @@ class GraphChildDelegate {
       }
     }
 
-    if (includeAllVisibleNodes) {
-      for (final node in graph.nodes) {
-        if (isNodeVisible(node) && !visibleGraph.nodes.contains(node)) {
-          visibleGraph.addNode(node);
-        }
-      }
-    }
-
     if (visibleGraph.nodes.isEmpty && graph.nodes.isNotEmpty) {
-      final fallbackNode = includeAllVisibleNodes
-          ? graph.nodes.firstWhereOrNull((node) => isNodeVisible(node))
-          : graph.nodes.first;
-      if (fallbackNode != null) {
-        visibleGraph.addNode(fallbackNode);
-      }
+      visibleGraph.addNode(graph.nodes.first);
     }
     return visibleGraph;
   }
@@ -69,8 +54,7 @@ class GraphChildDelegate {
   }
 
   bool shouldRebuild(GraphChildDelegate oldDelegate) {
-    final result =
-        graph != oldDelegate.graph ||
+    final result = graph != oldDelegate.graph ||
         algorithm != oldDelegate.algorithm ||
         nodeDraggingConfig != oldDelegate.nodeDraggingConfig;
     if (result) _needsRecalculation = true;

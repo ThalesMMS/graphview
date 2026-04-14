@@ -4,15 +4,11 @@ abstract class EdgeRenderer {
   Map<Node, Offset>? _animatedPositions;
   Graph? _graph;
 
-  void setAnimatedPositions(Map<Node, Offset> positions) =>
-      _animatedPositions = positions;
+  void setAnimatedPositions(Map<Node, Offset> positions) => _animatedPositions = positions;
 
   void setGraph(Graph graph) => _graph = graph;
 
-  Graph? get graph => _graph;
-
-  Offset getNodePosition(Node node) =>
-      _animatedPositions?[node] ?? node.position;
+  Offset getNodePosition(Node node) => _animatedPositions?[node] ?? node.position;
 
   void renderEdge(Canvas canvas, Edge edge, Paint paint);
 
@@ -23,8 +19,7 @@ abstract class EdgeRenderer {
   /// @param destinationCenter The center position of the destination node
   /// @param edgeIndex The index of this edge among parallel edges (for distribution)
   /// @return The connection point on the source node's boundary
-  Offset calculateSourceConnectionPoint(
-      Edge edge, Offset destinationCenter, int edgeIndex) {
+  Offset calculateSourceConnectionPoint(Edge edge, Offset destinationCenter, int edgeIndex) {
     return getNodeCenter(edge.source);
   }
 
@@ -35,8 +30,7 @@ abstract class EdgeRenderer {
   /// @param sourceCenter The center position of the source node
   /// @param edgeIndex The index of this edge among parallel edges (for distribution)
   /// @return The connection point on the destination node's boundary
-  Offset calculateDestinationConnectionPoint(
-      Edge edge, Offset sourceCenter, int edgeIndex) {
+  Offset calculateDestinationConnectionPoint(Edge edge, Offset sourceCenter, int edgeIndex) {
     return getNodeCenter(edge.destination);
   }
 
@@ -143,8 +137,7 @@ abstract class EdgeRenderer {
   }
 
   /// Draws a sine wave line between two points
-  void drawSineLine(
-      Canvas canvas, Offset source, Offset destination, Paint paint) {
+  void drawSineLine(Canvas canvas, Offset source, Offset destination, Paint paint) {
     final originalStrokeWidth = paint.strokeWidth;
     paint.strokeWidth = 1.5;
 
@@ -240,8 +233,9 @@ abstract class EdgeRenderer {
 
     final metric = metrics.first;
     final totalLength = metric.length;
-    final effectiveArrowLength =
-        arrowLength <= 0 ? 0.0 : min(arrowLength, totalLength * 0.3);
+    final effectiveArrowLength = arrowLength <= 0
+        ? 0.0
+        : min(arrowLength, totalLength * 0.3);
     final arrowBaseOffset = max(0.0, totalLength - effectiveArrowLength);
     final arrowBaseTangent = metric.getTangentForOffset(arrowBaseOffset);
     final arrowTipTangent = metric.getTangentForOffset(totalLength);
@@ -250,83 +244,6 @@ abstract class EdgeRenderer {
       path,
       arrowBaseTangent?.position ?? end,
       arrowTipTangent?.position ?? end,
-    );
-  }
-
-  /// Builds reusable geometry metadata for a rendered edge path.
-  EdgePathGeometry buildPathGeometry(
-    Path path, {
-    bool isSelfLoop = false,
-    double arrowLength = ARROW_LENGTH,
-  }) {
-    final metrics = path.computeMetrics().toList();
-    if (metrics.isEmpty) {
-      return EdgePathGeometry(
-        path: path,
-        start: Offset.zero,
-        end: Offset.zero,
-        arrowBase: Offset.zero,
-        arrowTip: Offset.zero,
-        isSelfLoop: isSelfLoop,
-      );
-    }
-
-    final metric = metrics.first;
-    final totalLength = metric.length;
-    final effectiveArrowLength =
-        arrowLength <= 0 ? 0.0 : min(arrowLength, totalLength * 0.3);
-    final arrowBaseOffset = max(0.0, totalLength - effectiveArrowLength);
-
-    final startTangent = metric.getTangentForOffset(0.0);
-    final arrowBaseTangent = metric.getTangentForOffset(arrowBaseOffset);
-    final endTangent = metric.getTangentForOffset(totalLength);
-
-    final start = startTangent?.position ?? Offset.zero;
-    final end = endTangent?.position ?? Offset.zero;
-
-    return EdgePathGeometry(
-      path: path,
-      start: start,
-      end: end,
-      arrowBase: arrowBaseTangent?.position ?? end,
-      arrowTip: end,
-      isSelfLoop: isSelfLoop,
-    );
-  }
-
-  /// Resolves label position and angle from the final rendered edge path.
-  EdgeLabelGeometry? buildLabelGeometry(Edge edge, Path path) {
-    if (edge.label == null || edge.label!.isEmpty) {
-      return null;
-    }
-
-    final metrics = path.computeMetrics().toList();
-    if (metrics.isEmpty) {
-      return null;
-    }
-
-    final metric = metrics.first;
-    final labelPosition = edge.labelPosition ?? EdgeLabelPosition.middle;
-    double factor;
-    switch (labelPosition) {
-      case EdgeLabelPosition.start:
-        factor = 0.2;
-        break;
-      case EdgeLabelPosition.middle:
-        factor = 0.5;
-        break;
-      case EdgeLabelPosition.end:
-        factor = 0.8;
-        break;
-    }
-    final tangent = metric.getTangentForOffset(metric.length * factor);
-    if (tangent == null) {
-      return null;
-    }
-
-    return EdgeLabelGeometry(
-      position: tangent.position,
-      angle: (edge.labelFollowsEdgeDirection ?? true) ? tangent.angle : null,
     );
   }
 
@@ -382,32 +299,4 @@ class LoopRenderResult {
   final Offset arrowTip;
 
   const LoopRenderResult(this.path, this.arrowBase, this.arrowTip);
-}
-
-class EdgePathGeometry {
-  final Path path;
-  final Offset start;
-  final Offset end;
-  final Offset arrowBase;
-  final Offset arrowTip;
-  final bool isSelfLoop;
-
-  const EdgePathGeometry({
-    required this.path,
-    required this.start,
-    required this.end,
-    required this.arrowBase,
-    required this.arrowTip,
-    required this.isSelfLoop,
-  });
-}
-
-class EdgeLabelGeometry {
-  final Offset position;
-  final double? angle;
-
-  const EdgeLabelGeometry({
-    required this.position,
-    required this.angle,
-  });
 }

@@ -13,8 +13,6 @@ class Graph {
   // Cache
   final Map<Node, List<Node>> _successorCache = {};
   final Map<Node, List<Node>> _predecessorCache = {};
-  final Map<Node, List<Edge>> _outEdgeCache = {};
-  final Map<Node, List<Edge>> _inEdgeCache = {};
   bool _cacheValid = false;
 
   List<Node> get nodes => _nodes;
@@ -53,24 +51,8 @@ class Graph {
 
   void removeNodes(List<Node> nodes) => nodes.forEach((it) => removeNode(it));
 
-  Edge addEdge(Node source, Node destination,
-      {Paint? paint,
-      String? label,
-      TextStyle? labelStyle,
-      EdgeLabelPosition? labelPosition,
-      bool? labelFollowsEdgeDirection,
-      Widget? labelWidget,
-      EdgeRenderer? renderer,
-      Offset? controlPoint}) {
-    final edge = Edge(source, destination,
-        paint: paint,
-        label: label,
-        labelStyle: labelStyle,
-        labelPosition: labelPosition,
-        labelFollowsEdgeDirection: labelFollowsEdgeDirection,
-        labelWidget: labelWidget,
-        renderer: renderer,
-        controlPoint: controlPoint);
+  Edge addEdge(Node source, Node destination, {Paint? paint, String? label, TextStyle? labelStyle, EdgeLabelPosition? labelPosition, bool? labelFollowsEdgeDirection, Widget? labelWidget, EdgeRenderer? renderer}) {
+    final edge = Edge(source, destination, paint: paint, label: label, labelStyle: labelStyle, labelPosition: labelPosition, labelFollowsEdgeDirection: labelFollowsEdgeDirection, labelWidget: labelWidget, renderer: renderer);
     addEdgeS(edge);
     return edge;
   }
@@ -158,21 +140,15 @@ class Graph {
   void _buildCache() {
     _successorCache.clear();
     _predecessorCache.clear();
-    _outEdgeCache.clear();
-    _inEdgeCache.clear();
 
     for (var node in _nodes) {
       _successorCache[node] = [];
       _predecessorCache[node] = [];
-      _outEdgeCache[node] = [];
-      _inEdgeCache[node] = [];
     }
 
     for (var edge in _edges) {
       _successorCache[edge.source]!.add(edge.destination);
       _predecessorCache[edge.destination]!.add(edge.source);
-      _outEdgeCache[edge.source]!.add(edge);
-      _inEdgeCache[edge.destination]!.add(edge);
     }
 
     _cacheValid = true;
@@ -197,8 +173,7 @@ class Graph {
     return _nodes[position];
   }
 
-  @Deprecated(
-      'Use Node.Id(id) constructor and getNodeUsingId(id) instead. See MIGRATION.md for details.')
+  @Deprecated('Use Node.Id(id) constructor and getNodeUsingId(id) instead. See MIGRATION.md for details.')
   Node getNodeAtUsingData(Widget data) =>
       _nodes.firstWhere((element) => element.data == data);
 
@@ -208,15 +183,11 @@ class Graph {
   Node getNodeUsingId(dynamic id) =>
       _nodes.firstWhere((element) => element.key == ValueKey(id));
 
-  List<Edge> getOutEdges(Node node) {
-    if (!_cacheValid) _buildCache();
-    return _outEdgeCache[node] ?? const <Edge>[];
-  }
+  List<Edge> getOutEdges(Node node) =>
+      _edges.where((element) => element.source == node).toList();
 
-  List<Edge> getInEdges(Node node) {
-    if (!_cacheValid) _buildCache();
-    return _inEdgeCache[node] ?? const <Edge>[];
-  }
+  List<Edge> getInEdges(Node node) =>
+      _edges.where((element) => element.destination == node).toList();
 
   void notifyGraphObserver() => graphObserver.forEach((element) {
         element.notifyGraphInvalidated();
@@ -235,6 +206,7 @@ class Graph {
 
     return json.encode(jsonString);
   }
+
 }
 
 extension GraphExtension on Graph {
@@ -245,10 +217,10 @@ extension GraphExtension on Graph {
     var maxY = double.negativeInfinity;
 
     for (final node in nodes) {
-      minX = min(minX, node.x);
-      minY = min(minY, node.y);
-      maxX = max(maxX, node.x + node.width);
-      maxY = max(maxY, node.y + node.height);
+        minX = min(minX, node.x);
+        minY = min(minY, node.y);
+        maxX = max(maxX, node.x + node.width);
+        maxY = max(maxY, node.y + node.height);
     }
 
     return Rect.fromLTRB(minX, minY, maxX, maxY);
@@ -270,12 +242,10 @@ enum LineType {
 class Node {
   ValueKey? key;
 
-  @Deprecated(
-      'Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
+  @Deprecated('Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
   Widget? data;
 
-  @Deprecated(
-      'Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
+  @Deprecated('Use Node.Id(id) constructor and GraphView.builder with builder pattern instead. See MIGRATION.md for details.')
   Node(this.data, {Key? key}) {
     this.key = ValueKey(key?.hashCode ?? data.hashCode);
   }
@@ -327,10 +297,8 @@ class Node {
 enum EdgeLabelPosition {
   /// Label at start of edge (20% along path)
   start,
-
   /// Label at middle of edge (50% along path)
   middle,
-
   /// Label at end of edge (80% along path)
   end,
 }
@@ -352,19 +320,7 @@ class Edge {
   // Custom renderer
   EdgeRenderer? renderer;
 
-  // Optional explicit control point for editor-owned edge curves.
-  Offset? controlPoint;
-
-  Edge(this.source, this.destination,
-      {this.key,
-      this.paint,
-      this.label,
-      this.labelStyle,
-      this.labelPosition,
-      this.labelFollowsEdgeDirection,
-      this.labelWidget,
-      this.renderer,
-      this.controlPoint});
+  Edge(this.source, this.destination, {this.key, this.paint, this.label, this.labelStyle, this.labelPosition, this.labelFollowsEdgeDirection, this.labelWidget, this.renderer});
 
   @override
   bool operator ==(covariant Edge other) =>

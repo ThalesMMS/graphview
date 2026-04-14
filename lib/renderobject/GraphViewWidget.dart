@@ -4,18 +4,14 @@ class GraphViewWidget extends RenderObjectWidget {
   final GraphChildDelegate delegate;
   final Paint? paint;
   final AnimationController nodeAnimationController;
-  final Curve nodeAnimationCurve;
   final bool enableAnimation;
-  final Listenable? repaint;
 
   const GraphViewWidget({
     Key? key,
     required this.delegate,
     this.paint,
     required this.nodeAnimationController,
-    required this.nodeAnimationCurve,
     required this.enableAnimation,
-    this.repaint,
   }) : super(key: key);
 
   @override
@@ -28,12 +24,8 @@ class GraphViewWidget extends RenderObjectWidget {
       paint,
       enableAnimation,
       nodeAnimationController: nodeAnimationController,
-      nodeAnimationCurve: nodeAnimationCurve,
-      repaint: repaint,
       childManager: context as GraphChildManager,
-    )
-      ..nodeDraggingConfiguration = delegate.nodeDraggingConfig
-      ..repaint = repaint;
+    )..nodeDraggingConfiguration = delegate.nodeDraggingConfig;
   }
 
   @override
@@ -43,9 +35,7 @@ class GraphViewWidget extends RenderObjectWidget {
       ..delegate = delegate
       ..edgePaint = paint
       ..nodeAnimationController = nodeAnimationController
-      ..nodeAnimationCurve = nodeAnimationCurve
       ..enableAnimation = enableAnimation
-      ..nodeDraggingConfiguration = delegate.nodeDraggingConfig
-      ..repaint = repaint;
+      ..nodeDraggingConfiguration = delegate.nodeDraggingConfig;
   }
 }

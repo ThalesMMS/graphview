@@ -6,10 +6,8 @@ class RenderCustomLayoutBox extends RenderBox
         RenderBoxContainerDefaultsMixin<RenderBox, NodeBoxData> {
   late Paint _paint;
   late AnimationController _nodeAnimationController;
-  late Curve _nodeAnimationCurve;
   late GraphChildDelegate _delegate;
   GraphChildManager? childManager;
-  Listenable? _repaintListenable;
 
   Size? _cachedSize;
   bool _isInitialized = false;
@@ -46,16 +44,12 @@ class RenderCustomLayoutBox extends RenderBox
     Paint? paint,
     bool enableAnimation, {
     required AnimationController nodeAnimationController,
-    required Curve nodeAnimationCurve,
-    Listenable? repaint,
     this.childManager,
   }) {
     _nodeAnimationController = nodeAnimationController;
-    _nodeAnimationCurve = nodeAnimationCurve;
     _delegate = delegate;
     edgePaint = paint;
     this.enableAnimation = enableAnimation;
-    _repaintListenable = repaint;
   }
 
   RenderBox? buildOrObtainChildFor(Node node) {
@@ -105,7 +99,6 @@ class RenderCustomLayoutBox extends RenderBox
   void attach(PipelineOwner owner) {
     super.attach(owner);
     _nodeAnimationController.addListener(_onAnimationTick);
-    _repaintListenable?.addListener(_onExternalRepaint);
     for (final child in _children.values) {
       child.attach(owner);
     }
@@ -114,7 +107,6 @@ class RenderCustomLayoutBox extends RenderBox
   @override
   void detach() {
     _nodeAnimationController.removeListener(_onAnimationTick);
-    _repaintListenable?.removeListener(_onExternalRepaint);
     super.detach();
     for (final child in _children.values) {
       child.detach();
@@ -151,28 +143,6 @@ class RenderCustomLayoutBox extends RenderBox
     markNeedsLayout();
   }
 
-  Curve get nodeAnimationCurve => _nodeAnimationCurve;
-
-  set nodeAnimationCurve(Curve value) {
-    if (identical(_nodeAnimationCurve, value)) {
-      return;
-    }
-    _nodeAnimationCurve = value;
-    markNeedsPaint();
-  }
-
-  Listenable? get repaint => _repaintListenable;
-
-  set repaint(Listenable? value) {
-    if (identical(_repaintListenable, value)) {
-      return;
-    }
-    _repaintListenable?.removeListener(_onExternalRepaint);
-    _repaintListenable = value;
-    _repaintListenable?.addListener(_onExternalRepaint);
-    markNeedsPaint();
-  }
-
   NodeDraggingConfiguration? get nodeDraggingConfiguration =>
       _nodeDraggingConfiguration;
 
@@ -206,17 +176,12 @@ class RenderCustomLayoutBox extends RenderBox
     markNeedsPaint();
   }
 
-  void _onExternalRepaint() {
-    markNeedsPaint();
-  }
-
   @override
   void paint(PaintingContext context, Offset offset) {
     if (_children.isEmpty) return;
 
     if (enableAnimation) {
       final t = _nodeAnimationController.value;
-      final curvedT = _nodeAnimationCurve.transform(t);
       animatedPositions.clear();
 
       for (final entry in _children.entries) {
@@ -224,13 +189,12 @@ class RenderCustomLayoutBox extends RenderBox
         final child = entry.value;
         final nodeData = child.parentData as NodeBoxData;
         final pos =
-            Offset.lerp(nodeData.startOffset, nodeData.targetOffset, curvedT)!;
+            Offset.lerp(nodeData.startOffset, nodeData.targetOffset, t)!;
         animatedPositions[node] = pos;
       }
 
       context.canvas.save();
       context.canvas.translate(offset.dx, offset.dy);
-      algorithm.renderer?.setGraph(graph);
       algorithm.renderer?.setAnimatedPositions(animatedPositions);
 
       final collapsingEdges =
@@ -238,7 +202,7 @@ class RenderCustomLayoutBox extends RenderBox
       final expandingEdges =
           _delegate.controller?.getExpandingEdges(graph).toSet() ?? {};
 
-      for (final edge in graph.edges) {
+     for (final edge in graph.edges) {
         var edgePaintWithOpacity = Paint.from(edge.paint ?? edgePaint);
 
         // Apply fade effect for collapsing edges (fade out)
@@ -270,19 +234,8 @@ class RenderCustomLayoutBox extends RenderBox
 
       _paintNodes(context, offset, t);
     } else {
-      animatedPositions.clear();
-      for (final entry in _children.entries) {
-        final node = entry.key;
-        final child = entry.value;
-        final nodeData = child.parentData as NodeBoxData;
-        animatedPositions[node] =
-            _delegate.isNodeVisible(node) ? nodeData.offset : node.position;
-      }
-
       context.canvas.save();
       context.canvas.translate(offset.dx, offset.dy);
-      algorithm.renderer?.setGraph(graph);
-      algorithm.renderer?.setAnimatedPositions(animatedPositions);
       graph.edges.forEach((edge) {
         algorithm.renderer?.renderEdge(context.canvas, edge, edgePaint);
       });
@@ -435,19 +388,12 @@ class RenderCustomLayoutBox extends RenderBox
       final child = entry.value;
       final nodeData = child.parentData as NodeBoxData;
 
-      Offset resolvedOffset;
       if (_delegate.isNodeVisible(node)) {
-        resolvedOffset = node.position;
+        nodeData.offset = node.position;
       } else {
         final parent = delegate.findClosestVisibleAncestor(node);
-        resolvedOffset = parent?.position ?? node.position;
+        nodeData.offset = parent?.position ?? node.position;
       }
-
-      nodeData.offset = resolvedOffset;
-      // Keep animation anchors aligned with direct position updates so toggling
-      // animations back on does not interpolate from stale pre-drag offsets.
-      nodeData.startOffset = resolvedOffset;
-      nodeData.targetOffset = resolvedOffset;
     }
   }
 
@@ -636,8 +582,7 @@ class RenderCustomLayoutBox extends RenderBox
       _draggedNode = node;
       _dragStartLocalPosition = localPosition;
       _dragStartNodePosition = node.position;
-      _previousNodePositions[node] =
-          node.position; // Initialize previous position
+      _previousNodePositions[node] = node.position; // Initialize previous position
       _isDragging = false;
     }
   }
@@ -661,8 +606,7 @@ class RenderCustomLayoutBox extends RenderBox
       final newPosition = startNodePosition + delta;
 
       // Calculate distance moved from previous position
-      final previousPosition =
-          _previousNodePositions[draggedNode] ?? startNodePosition;
+      final previousPosition = _previousNodePositions[draggedNode] ?? startNodePosition;
       final distanceMoved = (newPosition - previousPosition).distance;
 
       // Only update and mark dirty if movement exceeds threshold (skip sub-pixel updates)
@@ -678,8 +622,7 @@ class RenderCustomLayoutBox extends RenderBox
 
         graph.markModified();
         markNeedsPaint();
-        _nodeDraggingConfiguration?.onNodeDragUpdate
-            ?.call(draggedNode, newPosition);
+        _nodeDraggingConfiguration?.onNodeDragUpdate?.call(draggedNode, newPosition);
       }
     }
   }
@@ -689,8 +632,7 @@ class RenderCustomLayoutBox extends RenderBox
 
     // Invoke onNodeDragEnd callback before resetting state
     if (_isDragging && _draggedNode != null) {
-      _nodeDraggingConfiguration?.onNodeDragEnd
-          ?.call(_draggedNode!, _draggedNode!.position);
+      _nodeDraggingConfiguration?.onNodeDragEnd?.call(_draggedNode!, _draggedNode!.position);
       // Clean up previous position tracking
       _previousNodePositions.remove(_draggedNode);
     }

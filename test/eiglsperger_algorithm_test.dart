@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
 import 'example_trees.dart';
-import 'perf_test_utils.dart';
 
 const itemHeight = 100.0;
 const itemWidth = 100.0;
@@ -141,10 +140,7 @@ void main() {
       expect(timeTaken < 1000, true);
 
       expect(graph.getNodeUsingId(1).position.dx >= 10.0, true);
-      expect(
-          graph.getNodeUsingId(111).position.dx >
-              graph.getNodeUsingId(1).position.dx,
-          true);
+      expect(graph.getNodeUsingId(111).position.dx > graph.getNodeUsingId(1).position.dx, true);
 
       expect(size.width > 0, true);
       expect(size.height > 0, true);
@@ -337,12 +333,10 @@ void main() {
         final size = algorithm.run(graph, 10, 10);
         final timeTaken = stopwatch.elapsed.inMilliseconds;
 
-        print(
-            'Eiglsperger: ${timeTaken}ms - Layout size: $size - Nodes: ${graph.nodeCount()}');
+        print('Eiglsperger: ${timeTaken}ms - Layout size: $size - Nodes: ${graph.nodeCount()}');
 
         expect(timeTaken < 3000, true,
-            reason:
-                'Eiglsperger should complete within 3 seconds for 140 nodes');
+            reason: 'Eiglsperger should complete within 3 seconds for 140 nodes');
       });
 
       test('Eiglsperger LEFT_RIGHT Orientation - 140 Nodes', () {
@@ -435,38 +429,30 @@ void main() {
     });
 
     test('Eiglsperger Performance for 100 nodes to be less than 5.2s', () {
-      Graph createGraph() {
-        final graph = Graph();
-        const rows = 100;
+      final graph = Graph();
 
-        for (var i = 1; i <= rows; i++) {
-          for (var j = 1; j <= i; j++) {
-            graph.addEdge(Node.Id(i), Node.Id(j));
-          }
+      var rows = 100;
+
+      for (var i = 1; i <= rows; i++) {
+        for (var j = 1; j <= i; j++) {
+          graph.addEdge(Node.Id(i), Node.Id(j));
         }
-
-        for (var i = 0; i < graph.nodeCount(); i++) {
-          graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
-        }
-
-        return graph;
       }
 
-      SugiyamaConfiguration createConfiguration() {
-        return SugiyamaConfiguration()
-          ..nodeSeparation = 15
-          ..levelSeparation = 15
-          ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT;
+      final _configuration = SugiyamaConfiguration()
+        ..nodeSeparation = 15
+        ..levelSeparation = 15
+        ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT;
+
+      var algorithm = EiglspergerAlgorithm(_configuration);
+
+      for (var i = 0; i < graph.nodeCount(); i++) {
+        graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
       }
 
-      final graph = createGraph();
-      EiglspergerAlgorithm(createConfiguration()).run(graph, 10, 10);
-      final timeTaken = measureBestSyncMillis(
-        () => EiglspergerAlgorithm(createConfiguration())
-            .run(createGraph(), 10, 10),
-        warmupRuns: 0,
-        samples: 2,
-      );
+      var stopwatch = Stopwatch()..start();
+      algorithm.run(graph, 10, 10);
+      var timeTaken = stopwatch.elapsed.inMilliseconds;
 
       print('Timetaken $timeTaken ${graph.nodeCount()}');
 

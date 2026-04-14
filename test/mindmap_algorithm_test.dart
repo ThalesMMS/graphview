@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
-import 'perf_test_utils.dart';
-
 const itemHeight = 100.0;
 const itemWidth = 100.0;
 
@@ -41,8 +39,7 @@ void main() {
         ..subtreeSeparation = (150)
         ..orientation = (BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM);
 
-      var algorithm =
-          MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
+      var algorithm = MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
 
       for (var i = 0; i < graph.nodeCount(); i++) {
         graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
@@ -83,14 +80,13 @@ void main() {
         ..subtreeSeparation = (150)
         ..orientation = (BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM);
 
-      var algorithm =
-          MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
+      var algorithm = MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
 
       // Should throw exception when cycle is detected
       expect(
-        () => algorithm.run(cyclicGraph, 0, 0),
+            () => algorithm.run(cyclicGraph, 0, 0),
         throwsA(isA<Exception>().having(
-          (e) => e.toString(),
+              (e) => e.toString(),
           'message',
           contains('Cyclic dependency detected'),
         )),
@@ -122,18 +118,16 @@ void main() {
         ..subtreeSeparation = (150)
         ..orientation = (BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM);
 
-      var algorithm =
-          MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
+      var algorithm = MindmapAlgorithm(configuration, MindmapEdgeRenderer(configuration));
 
       var graph = createGraph(1000);
       for (var i = 0; i < graph.nodeCount(); i++) {
         graph.getNodeAtPosition(i).size = Size(itemWidth, itemHeight);
       }
 
-      final timeTaken = measureBestSyncMillis(
-        () => algorithm.run(graph, 0, 0),
-        samples: 5,
-      );
+      var stopwatch = Stopwatch()..start();
+      algorithm.run(graph, 0, 0);
+      var timeTaken = stopwatch.elapsed.inMilliseconds;
 
       print('Timetaken $timeTaken for ${graph.nodeCount()} nodes');
 

@@ -106,9 +106,17 @@ class TidierTreeLayoutAlgorithm extends Algorithm {
   }
 
   List<Node> _findRoots(Graph graph) {
-    return graph.nodes
-        .where((node) => (nodeData[node]?.predecessorNodes.isEmpty ?? true))
-        .toList();
+    final incomingCounts = <Node, int>{};
+    for (final node in graph.nodes) {
+      incomingCounts[node] = 0;
+    }
+
+    for (final edge in graph.edges) {
+      incomingCounts[edge.destination] =
+          (incomingCounts[edge.destination] ?? 0) + 1;
+    }
+
+    return graph.nodes.where((node) => incomingCounts[node] == 0).toList();
   }
 
   TidierTreeNodeData _nodeData(Node? v) {
@@ -368,16 +376,9 @@ class TidierTreeLayoutAlgorithm extends Algorithm {
   }
 
   void _normalizePositions(Graph graph) {
-    var minX = double.infinity;
-    var minY = double.infinity;
-
-    for (final node in graph.nodes) {
-      minX = min(minX, node.x);
-      minY = min(minY, node.y);
-    }
-
-    final xOffset = config.subtreeSeparation - minX;
-    final yOffset = config.levelSeparation - minY;
+    final graphBounds = graph.calculateGraphBounds();
+    final xOffset = config.subtreeSeparation - graphBounds.left;
+    final yOffset = config.levelSeparation - graphBounds.top;
 
     for (final node in graph.nodes) {
       node.position = Offset(

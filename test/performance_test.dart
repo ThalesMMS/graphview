@@ -3,8 +3,6 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
-import 'perf_test_utils.dart';
-
 const itemHeight = 50.0;
 const itemWidth = 50.0;
 
@@ -68,19 +66,16 @@ void main() {
       stopwatch.stop();
       final repulsionTime = stopwatch.elapsedMilliseconds;
 
-      print(
-          'Edge repulsion solver time for ${graph.edges.length} edges: ${repulsionTime}ms');
+      print('Edge repulsion solver time for ${graph.edges.length} edges: ${repulsionTime}ms');
       print('  - Intersections detected: ${intersections.length}');
       print('  - Proximity pairs detected: ${proximity.length}');
       print('  - Repulsion offsets calculated: ${offsets.length}');
 
       expect(repulsionTime, lessThan(500),
-          reason:
-              'Repulsion solver should complete in under 500ms for 200+ edges');
+          reason: 'Repulsion solver should complete in under 500ms for 200+ edges');
     });
 
-    test(
-        'Dirty tracking efficiency - moving 1 node recalculates only connected edges',
+    test('Dirty tracking efficiency - moving 1 node recalculates only connected edges',
         () {
       // Create graph with 50 nodes and 100 edges
       final graph = _createDenseGraph(50, 100);
@@ -97,13 +92,11 @@ void main() {
 
       // Verify dirty tracking efficiency: should be much less than total edges
       expect(connectedEdges.length, lessThan(10),
-          reason:
-              'Moving 1 node should mark fewer than 10 edges dirty in a 100-edge graph');
+          reason: 'Moving 1 node should mark fewer than 10 edges dirty in a 100-edge graph');
 
       // Verify it's a reasonable percentage of total edges
       final percentage = (connectedEdges.length / graph.edges.length) * 100;
-      print(
-          'Percentage of edges marked dirty: ${percentage.toStringAsFixed(1)}%');
+      print('Percentage of edges marked dirty: ${percentage.toStringAsFixed(1)}%');
       expect(percentage, lessThan(15.0),
           reason: 'Dirty edges should be less than 15% of total edges');
     });
@@ -171,8 +164,7 @@ void main() {
       print('Cache hit rate: ${cacheHitRate.toStringAsFixed(1)}%');
 
       expect(cacheHitRate, equals(100.0),
-          reason:
-              'Second render should reuse 100% of cached paths when nodes are static');
+          reason: 'Second render should reuse 100% of cached paths when nodes are static');
       expect(secondRenderTime, lessThanOrEqualTo(firstRenderTime),
           reason: 'Second render should be faster or equal due to caching');
     });
@@ -190,12 +182,13 @@ void main() {
         final renderer = AdaptiveEdgeRenderer(config: config);
         final solver = EdgeRepulsionSolver();
 
-        times[size] = measureBestSyncMillis(() {
-          solver.buildGrid(graph.edges.toList(), renderer);
-          solver.detectIntersections();
-        }, samples: 5);
-        print(
-            'Spatial partitioning time for $size nodes (${graph.edges.length} edges): ${times[size]}ms');
+        final stopwatch = Stopwatch()..start();
+        solver.buildGrid(graph.edges.toList(), renderer);
+        solver.detectIntersections();
+        stopwatch.stop();
+
+        times[size] = stopwatch.elapsedMilliseconds;
+        print('Spatial partitioning time for $size nodes (${graph.edges.length} edges): ${times[size]}ms');
       }
 
       // Verify O(n log n) scaling: time ratio should be less than (n2/n1)^2
@@ -203,16 +196,14 @@ void main() {
       final time100 = times[100]!;
       final time200 = times[200]!;
 
-      // If it were a pure O(n^2) pairwise check over a fixed-density workload,
-      // 100->200 would be about 4x slower. This synthetic graph increases edge
-      // span and crossing density as it grows, so allow a wider subquadratic
-      // envelope while still catching true blowups.
+      // If it were O(n^2), 100->200 would be 4x slower
+      // With O(n log n), it should be approximately 2.13x (200 log 200 / 100 log 100)
+      // Allow up to 5x due to small dataset variance and GC pauses
       if (time100 > 0) {
         final ratio = time200 / time100;
         print('Scaling ratio 200->100 nodes: ${ratio.toStringAsFixed(2)}x');
-        expect(ratio, lessThan(7.0),
-            reason:
-                'Spatial partitioning should remain comfortably subquadratic for this workload');
+        expect(ratio, lessThan(5.0),
+            reason: 'O(n log n) scaling should be less than O(n^2) scaling');
       }
     });
 
@@ -239,15 +230,12 @@ void main() {
       stopwatch.stop();
       final renderTime = stopwatch.elapsedMilliseconds;
 
-      print(
-          'Orthogonal routing time for ${graph.edges.length} edges: ${renderTime}ms');
+      print('Orthogonal routing time for ${graph.edges.length} edges: ${renderTime}ms');
       expect(renderTime, lessThan(100),
-          reason:
-              'Orthogonal routing should complete in under 100ms for 150 edges');
+          reason: 'Orthogonal routing should complete in under 100ms for 150 edges');
     });
 
-    test(
-        'Combined: adaptive anchors + bezier routing + repulsion with 100+ edges',
+    test('Combined: adaptive anchors + bezier routing + repulsion with 100+ edges',
         () {
       // Create realistic graph with 60 nodes and 120 edges
       final graph = _createDenseGraph(60, 120);
@@ -274,15 +262,13 @@ void main() {
       stopwatch.stop();
       final totalTime = stopwatch.elapsedMilliseconds;
 
-      print(
-          'Full adaptive edge routing pipeline for ${graph.edges.length} edges: ${totalTime}ms');
+      print('Full adaptive edge routing pipeline for ${graph.edges.length} edges: ${totalTime}ms');
       print('  - Anchor mode: ${config.anchorMode}');
       print('  - Routing mode: ${config.routingMode}');
       print('  - Repulsion enabled: ${config.enableRepulsion}');
 
       expect(totalTime, lessThan(200),
-          reason:
-              'Full adaptive routing pipeline should complete in under 200ms for 120 edges');
+          reason: 'Full adaptive routing pipeline should complete in under 200ms for 120 edges');
     });
 
     test('Memory efficiency - multiple renders do not leak', () {
@@ -331,8 +317,8 @@ Graph _createDenseGraph(int nodeCount, int edgeCount) {
       if (j - i > nodeCount ~/ 3) continue;
 
       // Add edge if not already exists
-      final existingEdge = graph.edges
-          .any((e) => e.source == nodes[i] && e.destination == nodes[j]);
+      final existingEdge = graph.edges.any(
+          (e) => e.source == nodes[i] && e.destination == nodes[j]);
       if (!existingEdge) {
         graph.addEdge(nodes[i], nodes[j]);
         edgesCreated++;

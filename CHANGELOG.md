@@ -1,18 +1,3 @@
-## Unreleased
-
-- **NEW**: Added `includeAllVisibleNodes` to `GraphView` and `GraphChildDelegate`
-    - Preserves disconnected visible nodes in builder mode without relying on delegate overrides
-    - Keeps collapsed and hidden nodes excluded from `getVisibleGraphOnly()`
-- **NEW**: Added reusable adaptive edge geometry APIs for custom renderers
-    - `Edge.controlPoint` now supports explicit quadratic bend points per edge
-    - `AdaptiveEdgeRenderer.buildEdgeGeometry()` and `buildLabelGeometry()` expose the final routed path and label anchor data
-    - Manual control-point edges keep endpoint clipping while bypassing automatic parallel-edge offsets
-- **NEW**: Added `AnimatedAdaptiveEdgeRenderer`
-    - Reuses adaptive routing for direct, bezier, and self-loop edges
-    - Flow particles now follow the final rendered path instead of a straight-line fallback
-- **NEW**: Added `repaint` to `GraphView` constructors
-    - Allows callers to trigger paint-only updates for custom edge animations without relayout
-
 ## 1.5.2
 
 - **IMPROVED**: Enhanced deprecation warnings with clearer migration guidance
