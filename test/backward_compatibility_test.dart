@@ -61,8 +61,10 @@ void main() {
         );
 
         // Verify connection points are node centers (not adaptive)
-        final sourcePoint = renderer.calculateSourceConnectionPoint(edge1, destCenter, 0);
-        final destPoint = renderer.calculateDestinationConnectionPoint(edge1, sourceCenter, 0);
+        final sourcePoint =
+            renderer.calculateSourceConnectionPoint(edge1, destCenter, 0);
+        final destPoint = renderer.calculateDestinationConnectionPoint(
+            edge1, sourceCenter, 0);
 
         expect(sourcePoint, equals(sourceCenter));
         expect(destPoint, equals(destCenter));
@@ -70,10 +72,6 @@ void main() {
 
       test('renders edges without errors (no config)', () {
         final renderer = ArrowEdgeRenderer();
-        final paint = Paint()
-          ..color = const Color(0xFF000000)
-          ..strokeWidth = 2.0;
-
         // This should not throw - we can't actually render without a canvas,
         // but we can verify the renderer is properly configured
         expect(() {
@@ -103,8 +101,7 @@ void main() {
       });
 
       test('supports optional config parameter (new feature)', () {
-        final config = EdgeRoutingConfig()
-          ..anchorMode = AnchorMode.cardinal;
+        final config = EdgeRoutingConfig()..anchorMode = AnchorMode.cardinal;
 
         expect(() => ArrowEdgeRenderer(config: config), returnsNormally);
       });
@@ -136,8 +133,10 @@ void main() {
           );
 
           renderer.buildCurvedPath(
-            sourceCenter.dx, sourceCenter.dy,
-            destCenter.dx, destCenter.dy,
+            sourceCenter.dx,
+            sourceCenter.dy,
+            destCenter.dx,
+            destCenter.dy,
           );
 
           final metrics = renderer.curvePath.computeMetrics().toList();
@@ -321,8 +320,10 @@ void main() {
             ..y = 50.0; // Negative X
 
           // Test orientation calculation (method from MindmapEdgeRenderer)
-          final orientation1 = renderer.getEffectiveOrientation(parentNode, childNode1);
-          final orientation2 = renderer.getEffectiveOrientation(parentNode, childNode2);
+          final orientation1 =
+              renderer.getEffectiveOrientation(parentNode, childNode1);
+          final orientation2 =
+              renderer.getEffectiveOrientation(parentNode, childNode2);
 
           expect(orientation1, isA<int>());
           expect(orientation2, isA<int>());
@@ -342,7 +343,8 @@ void main() {
           particleSize: 4.0,
         );
 
-        expect(() => AnimatedEdgeRenderer(animationConfig: config), returnsNormally);
+        expect(() => AnimatedEdgeRenderer(animationConfig: config),
+            returnsNormally);
       });
 
       test('extends ArrowEdgeRenderer (backward compatible)', () {
@@ -406,7 +408,8 @@ void main() {
           ..lineTo(100, 100);
 
         // Default applyEdgeRepulsion should return path unchanged
-        final resultPath = renderer.applyEdgeRepulsion([edge1], edge1, originalPath);
+        final resultPath =
+            renderer.applyEdgeRepulsion([edge1], edge1, originalPath);
         expect(resultPath, equals(originalPath));
       });
 

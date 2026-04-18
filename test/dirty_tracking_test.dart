@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
@@ -36,7 +35,7 @@ void main() {
 
       final dirtyEdges = <Edge>{};
       dirtyEdges.addAll(graph.getOutEdges(node2)); // edge2
-      dirtyEdges.addAll(graph.getInEdges(node2));  // edge1
+      dirtyEdges.addAll(graph.getInEdges(node2)); // edge1
 
       expect(dirtyEdges.length, 2);
       expect(dirtyEdges.contains(edge1), isTrue);
@@ -68,7 +67,8 @@ void main() {
       expect(dirtyEdges.length, 2);
       expect(dirtyEdges.contains(edge1), isTrue);
       expect(dirtyEdges.contains(edge2), isTrue);
-      expect(dirtyEdges.contains(edge3), isFalse); // edge3 not connected to node2
+      expect(
+          dirtyEdges.contains(edge3), isFalse); // edge3 not connected to node2
     });
 
     test('edges to multiple nodes are tracked correctly', () {

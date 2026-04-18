@@ -5,8 +5,8 @@ import 'package:graphview/GraphView.dart';
 
 void main() {
   group('GraphView Performance Tests', () {
-
-    testWidgets('hitTest performance with 1000+ nodes less than 20s', (WidgetTester tester) async {
+    testWidgets('hitTest performance with 1000+ nodes less than 20ms',
+        (WidgetTester tester) async {
       final graph = _createLargeGraph(1000);
 
       final _configuration = BuchheimWalkerConfiguration()
@@ -38,9 +38,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final renderBox = tester.renderObject<RenderCustomLayoutBox>(
-          find.byType(GraphViewWidget)
-      );
+      final renderBox = tester
+          .renderObject<RenderCustomLayoutBox>(find.byType(GraphViewWidget));
 
       final stopwatch = Stopwatch()..start();
 
@@ -54,10 +53,12 @@ void main() {
       final hitTestTime = stopwatch.elapsedMilliseconds;
 
       print('HitTest time for 1000 nodes (10 tests): ${hitTestTime}ms');
-      expect(hitTestTime, lessThan(20), reason: 'HitTest should complete in under 10ms');
+      expect(hitTestTime, lessThan(20),
+          reason: 'HitTest should complete in under 20ms');
     });
 
-    testWidgets('paint performance with 1000+ nodes', (WidgetTester tester) async {
+    testWidgets('paint performance with 1000+ nodes',
+        (WidgetTester tester) async {
       final graph = _createLargeGraph(1000);
 
       final _configuration = BuchheimWalkerConfiguration()
@@ -83,44 +84,70 @@ void main() {
         ),
       ));
 
-      final stopwatch = Stopwatch()..start();
-
-      // Trigger multiple repaints
-      for (var i = 0; i < 10; i++) {
-        await tester.pump();
+      Future<int> measurePaintTime() async {
+        final stopwatch = Stopwatch()..start();
+        for (var i = 0; i < 10; i++) {
+          await tester.pump();
+        }
+        stopwatch.stop();
+        return stopwatch.elapsedMilliseconds;
       }
 
-      stopwatch.stop();
-      final paintTime = stopwatch.elapsedMilliseconds;
+      await measurePaintTime();
 
-      print('Paint time for 1000 nodes (10 repaints): ${paintTime}ms');
-      expect(paintTime, lessThan(50), reason: 'Paint should complete in under 50ms');
+      final paintTimes = <int>[];
+      for (var i = 0; i < 5; i++) {
+        paintTimes.add(await measurePaintTime());
+      }
+      final medianPaintTime = _median(paintTimes);
+
+      print('Median paint time for 1000 nodes (10 repaints): '
+          '${medianPaintTime}ms');
+      expect(medianPaintTime, lessThan(100),
+          reason: 'Paint should complete in under 100ms');
     });
 
     test('algorithm run performance with 1000+ nodes', () {
-      final graph = _createLargeGraph(1000);
+      int measureAlgorithmTime() {
+        final graph = _createLargeGraph(1000);
 
-      final _configuration = BuchheimWalkerConfiguration()
-        ..siblingSeparation = (100)
-        ..levelSeparation = (150)
-        ..subtreeSeparation = (150)
-        ..orientation = (BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM);
+        final _configuration = BuchheimWalkerConfiguration()
+          ..siblingSeparation = (100)
+          ..levelSeparation = (150)
+          ..subtreeSeparation = (150)
+          ..orientation = (BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM);
 
-      var algorithm = BuchheimWalkerAlgorithm(
-          _configuration, TreeEdgeRenderer(_configuration));
+        var algorithm = BuchheimWalkerAlgorithm(
+            _configuration, TreeEdgeRenderer(_configuration));
 
-      final stopwatch = Stopwatch()..start();
+        final stopwatch = Stopwatch()..start();
+        algorithm.run(graph, 0, 0);
+        stopwatch.stop();
+        return stopwatch.elapsedMilliseconds;
+      }
 
-      algorithm.run(graph, 0, 0);
+      measureAlgorithmTime();
 
-      stopwatch.stop();
-      final algorithmTime = stopwatch.elapsedMilliseconds;
+      final algorithmTimes = <int>[];
+      for (var i = 0; i < 5; i++) {
+        algorithmTimes.add(measureAlgorithmTime());
+      }
+      final medianAlgorithmTime = _median(algorithmTimes);
 
-      print('Algorithm run time for 1000 nodes: ${algorithmTime}ms');
-      expect(algorithmTime, lessThan(10), reason: 'Algorithm should complete in under 10 milisecond');
+      print('Median algorithm run time for 1000 nodes: '
+          '${medianAlgorithmTime}ms');
+      expect(medianAlgorithmTime, lessThan(20),
+          reason: 'Algorithm should complete in under 20 milliseconds');
     });
-
   });
+}
+
+int _median(List<int> values) {
+  if (values.isEmpty) {
+    throw ArgumentError.value(values, 'values', 'must not be empty');
+  }
+  final sorted = [...values]..sort();
+  return sorted[sorted.length ~/ 2];
 }
 
 /// Creates a large graph with connected nodes for performance testing

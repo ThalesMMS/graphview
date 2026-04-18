@@ -41,7 +41,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -71,7 +71,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -100,7 +100,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -129,7 +129,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -158,7 +158,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -187,7 +187,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -206,7 +206,8 @@ void main() {
   });
 
   group('OrthogonalEdgeRenderer - Path Direction Logic', () {
-    test('uses horizontal-first routing when horizontal distance is greater', () {
+    test('uses horizontal-first routing when horizontal distance is greater',
+        () {
       final graph = Graph();
       final node1 = Node.Id(1);
       node1.position = Offset(0, 50);
@@ -219,7 +220,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -249,7 +250,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -329,7 +330,8 @@ void main() {
       final renderer = OrthogonalEdgeRenderer(config);
 
       expect(renderer.configuration, equals(config));
-      expect(renderer.configuration.routingMode, equals(RoutingMode.orthogonal));
+      expect(
+          renderer.configuration.routingMode, equals(RoutingMode.orthogonal));
     });
 
     test('works with different anchor modes', () {
@@ -376,7 +378,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -423,7 +425,8 @@ void main() {
           expect(
             normalizedDot.abs() < 0.1 || normalizedDot.abs() > 0.9,
             isTrue,
-            reason: 'Segments should be perpendicular or parallel in orthogonal routing',
+            reason:
+                'Segments should be perpendicular or parallel in orthogonal routing',
           );
         }
       }
@@ -441,7 +444,7 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
@@ -474,7 +477,8 @@ void main() {
           expect(
             isHorizontal || isVertical,
             isTrue,
-            reason: 'Orthogonal paths should only have horizontal or vertical segments',
+            reason:
+                'Orthogonal paths should only have horizontal or vertical segments',
           );
         }
       }
@@ -494,18 +498,20 @@ void main() {
 
       graph.addNode(node1);
       graph.addNode(node2);
-      final edge1 = graph.addEdge(node1, node2);
-      final edge2 = graph.addEdge(node2, node1);
+      graph.addEdge(node1, node2);
+      graph.addEdge(node2, node1);
 
       final config = EdgeRoutingConfig();
       final renderer = OrthogonalEdgeRenderer(config);
 
       // Build paths for both edges
-      renderer.buildOrthogonalPath(node1, node2, node1.position, node2.position);
+      renderer.buildOrthogonalPath(
+          node1, node2, node1.position, node2.position);
       expect(renderer.linePath, isNotNull);
 
       renderer.linePath.reset();
-      renderer.buildOrthogonalPath(node2, node1, node2.position, node1.position);
+      renderer.buildOrthogonalPath(
+          node2, node1, node2.position, node1.position);
       expect(renderer.linePath, isNotNull);
     });
   });
@@ -542,8 +548,10 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint =
+          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint =
+          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       // Route the path with bezier
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
@@ -582,8 +590,10 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint =
+          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint =
+          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       // Route the path with bezier
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
@@ -648,8 +658,10 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint =
+          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint =
+          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
 
@@ -686,15 +698,19 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint =
+          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint =
+          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
 
       expect(path, isNotNull);
     });
 
-    test('orthogonal routing mode in AdaptiveEdgeRenderer creates L-shaped paths', () {
+    test(
+        'orthogonal routing mode in AdaptiveEdgeRenderer creates L-shaped paths',
+        () {
       final graph = Graph();
       final node1 = Node.Id(1);
       node1.position = Offset(0, 0);
@@ -724,8 +740,10 @@ void main() {
         node2.position.dy + node2.height * 0.5,
       );
 
-      final sourcePoint = renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
-      final destPoint = renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
+      final sourcePoint =
+          renderer.calculateSourceConnectionPoint(edge, destCenter, 0);
+      final destPoint =
+          renderer.calculateDestinationConnectionPoint(edge, sourceCenter, 0);
 
       final path = renderer.routeEdgePath(sourcePoint, destPoint, edge);
 

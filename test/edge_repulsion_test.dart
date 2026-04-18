@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:graphview/GraphView.dart';
 
@@ -389,7 +388,8 @@ void main() {
       final edge2 = graph.addEdge(node3, node4);
 
       // Apply repulsion forces
-      final offsets = solver.applyRepulsionForces([edge1, edge2], renderer, config);
+      final offsets =
+          solver.applyRepulsionForces([edge1, edge2], renderer, config);
 
       // Both edges should have non-zero repulsion offsets
       expect(offsets[edge1], isNotNull);
@@ -433,7 +433,8 @@ void main() {
       final edge2 = graph.addEdge(node3, node4);
 
       // Apply repulsion forces with disabled config
-      final offsets = solver.applyRepulsionForces([edge1, edge2], renderer, disabledConfig);
+      final offsets =
+          solver.applyRepulsionForces([edge1, edge2], renderer, disabledConfig);
 
       // Should return empty map
       expect(offsets.isEmpty, isTrue);
@@ -460,7 +461,8 @@ void main() {
       final edge2 = graph.addEdge(node3, node4);
 
       // Apply repulsion forces
-      final offsets = solver.applyRepulsionForces([edge1, edge2], renderer, config);
+      final offsets =
+          solver.applyRepulsionForces([edge1, edge2], renderer, config);
 
       // Offsets should be zero or very small since edges are far apart
       final offset1 = offsets[edge1] ?? Offset.zero;
@@ -488,8 +490,8 @@ void main() {
       final closeEdge1 = graph1.addEdge(n1a, n1b);
       final closeEdge2 = graph1.addEdge(n1c, n1d);
 
-      final closeOffsets = solver1.applyRepulsionForces(
-        [closeEdge1, closeEdge2], renderer, config);
+      final closeOffsets = solver1
+          .applyRepulsionForces([closeEdge1, closeEdge2], renderer, config);
       final closeForce = (closeOffsets[closeEdge2] ?? Offset.zero).distance;
 
       // Setup 2: reference edge + far edge (7px apart)
@@ -506,8 +508,8 @@ void main() {
       final farEdge1 = graph2.addEdge(n2a, n2b);
       final farEdge2 = graph2.addEdge(n2c, n2d);
 
-      final farOffsets = solver2.applyRepulsionForces(
-        [farEdge1, farEdge2], renderer, config);
+      final farOffsets =
+          solver2.applyRepulsionForces([farEdge1, farEdge2], renderer, config);
       final farForce = (farOffsets[farEdge2] ?? Offset.zero).distance;
 
       // Closer edges should have stronger force
@@ -535,7 +537,8 @@ void main() {
       final edge2 = graph.addEdge(node3, node4);
 
       // Apply repulsion forces
-      final offsets = solver.applyRepulsionForces([edge1, edge2], renderer, config);
+      final offsets =
+          solver.applyRepulsionForces([edge1, edge2], renderer, config);
 
       final offset1 = offsets[edge1]!;
 
@@ -643,7 +646,9 @@ void main() {
       }
 
       // Verify that the solver ran and produced results
-      expect(offsets.values.any((offset) => offset.distance > VectorUtils.epsilon), isTrue);
+      expect(
+          offsets.values.any((offset) => offset.distance > VectorUtils.epsilon),
+          isTrue);
     });
 
     test('handles crossing edges correctly', () {
@@ -670,7 +675,8 @@ void main() {
       final edge2 = graph.addEdge(node3, node4);
 
       // Apply repulsion forces
-      final offsets = solver.applyRepulsionForces([edge1, edge2], renderer, config);
+      final offsets =
+          solver.applyRepulsionForces([edge1, edge2], renderer, config);
 
       // Both edges should have repulsion forces
       expect(offsets[edge1], isNotNull);
@@ -693,8 +699,10 @@ void main() {
         edge2: const Offset(-3, 7),
       };
 
-      expect(solver.getRepulsionOffset(edge1, offsets), equals(const Offset(5, 10)));
-      expect(solver.getRepulsionOffset(edge2, offsets), equals(const Offset(-3, 7)));
+      expect(solver.getRepulsionOffset(edge1, offsets),
+          equals(const Offset(5, 10)));
+      expect(solver.getRepulsionOffset(edge2, offsets),
+          equals(const Offset(-3, 7)));
     });
 
     test('getRepulsionOffset returns zero for missing edge', () {

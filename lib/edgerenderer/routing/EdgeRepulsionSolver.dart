@@ -30,9 +30,9 @@ class EdgeSegment {
 
   /// Returns the midpoint of this segment.
   Offset get midpoint => Offset(
-    (start.dx + end.dx) / 2,
-    (start.dy + end.dy) / 2,
-  );
+        (start.dx + end.dx) / 2,
+        (start.dy + end.dy) / 2,
+      );
 
   /// Returns the direction vector of this segment.
   Offset get direction => end - start;
@@ -283,21 +283,28 @@ class EdgeRepulsionSolver {
   double _segmentDistance(EdgeSegment a, EdgeSegment b) {
     // Check for actual intersection first - crossing segments have distance 0
     final intersection = VectorUtils.lineIntersection(
-      a.start, a.end, b.start, b.end,
+      a.start,
+      a.end,
+      b.start,
+      b.end,
     );
     if (intersection != null) {
       return 0.0;
     }
 
-    double minDist = double.infinity;
+    var minDist = double.infinity;
 
     // Distance from a's endpoints to segment b
-    minDist = min(minDist, VectorUtils.distanceToLineSegment(a.start, b.start, b.end));
-    minDist = min(minDist, VectorUtils.distanceToLineSegment(a.end, b.start, b.end));
+    minDist = min(
+        minDist, VectorUtils.distanceToLineSegment(a.start, b.start, b.end));
+    minDist =
+        min(minDist, VectorUtils.distanceToLineSegment(a.end, b.start, b.end));
 
     // Distance from b's endpoints to segment a
-    minDist = min(minDist, VectorUtils.distanceToLineSegment(b.start, a.start, a.end));
-    minDist = min(minDist, VectorUtils.distanceToLineSegment(b.end, a.start, a.end));
+    minDist = min(
+        minDist, VectorUtils.distanceToLineSegment(b.start, a.start, a.end));
+    minDist =
+        min(minDist, VectorUtils.distanceToLineSegment(b.end, a.start, a.end));
 
     return minDist;
   }
@@ -314,15 +321,12 @@ class EdgeRepulsionSolver {
 
     final totalSegments = _segments.length;
     final totalCells = _grid.length;
-    final avgSegmentsPerCell = totalCells > 0
-        ? totalSegments / totalCells
-        : 0.0;
+    final avgSegmentsPerCell =
+        totalCells > 0 ? totalSegments / totalCells : 0.0;
     final medianSegmentsPerCell = cellCounts.isNotEmpty
         ? cellCounts[cellCounts.length ~/ 2].toDouble()
         : 0.0;
-    final maxSegmentsPerCell = cellCounts.isNotEmpty
-        ? cellCounts.last
-        : 0;
+    final maxSegmentsPerCell = cellCounts.isNotEmpty ? cellCounts.last : 0;
 
     return {
       'totalSegments': totalSegments,
@@ -367,7 +371,9 @@ class EdgeRepulsionSolver {
     buildGrid(edges, renderer);
 
     // Iterate to apply forces until convergence or max iterations
-    for (var iteration = 0; iteration < config.maxRepulsionIterations; iteration++) {
+    for (var iteration = 0;
+        iteration < config.maxRepulsionIterations;
+        iteration++) {
       // Track total movement in this iteration for convergence check
       var totalMovement = 0.0;
 
@@ -400,7 +406,8 @@ class EdgeRepulsionSolver {
 
         // Apply force with strength scaling
         final scaledForce = force * config.repulsionStrength;
-        repulsionOffsets[edge] = (repulsionOffsets[edge] ?? Offset.zero) + scaledForce;
+        repulsionOffsets[edge] =
+            (repulsionOffsets[edge] ?? Offset.zero) + scaledForce;
 
         totalMovement += scaledForce.distance;
       }
@@ -444,7 +451,8 @@ class EdgeRepulsionSolver {
     final segment1Perpendicular = VectorUtils.perpendicular(segment1Direction);
 
     // Normalize the perpendicular vector
-    final normalizedPerpendicular = VectorUtils.normalize(segment1Perpendicular);
+    final normalizedPerpendicular =
+        VectorUtils.normalize(segment1Perpendicular);
 
     // If normalization failed (zero-length segment), return no force
     if (normalizedPerpendicular == Offset.zero) {

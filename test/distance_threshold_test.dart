@@ -4,7 +4,8 @@ import 'package:graphview/GraphView.dart';
 
 void main() {
   group('Distance Threshold Tests', () {
-    testWidgets('Movements less than 1px do not mark edges dirty', (WidgetTester tester) async {
+    testWidgets('Movements less than 1px do not mark edges dirty',
+        (WidgetTester tester) async {
       // Create graph with two connected nodes
       final graph = Graph();
       final node1 = Node.Id(1);
@@ -12,7 +13,7 @@ void main() {
       graph.addNode(node1);
       graph.addNode(node2);
 
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       // Set initial positions
       node1.position = const Offset(100, 100);
@@ -26,7 +27,8 @@ void main() {
       graph.isTree = true;
       final controller = GraphViewController();
       final configuration = BuchheimWalkerConfiguration();
-      final algorithm = BuchheimWalkerAlgorithm(configuration, TreeEdgeRenderer(configuration));
+      final algorithm = BuchheimWalkerAlgorithm(
+          configuration, TreeEdgeRenderer(configuration));
 
       await tester.pumpWidget(
         MaterialApp(
@@ -62,7 +64,7 @@ void main() {
       graph.addNode(node1);
       graph.addNode(node2);
 
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       node1.position = const Offset(100, 100);
       node2.position = const Offset(200, 200);
@@ -81,7 +83,7 @@ void main() {
       graph.addNode(node1);
       graph.addNode(node2);
 
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       node1.position = const Offset(100, 100);
       node2.position = const Offset(200, 200);
@@ -133,8 +135,8 @@ void main() {
       graph.addNode(node2);
       graph.addNode(node3);
 
-      final edge1 = graph.addEdge(node1, node2);
-      final edge2 = graph.addEdge(node2, node3);
+      graph.addEdge(node1, node2);
+      graph.addEdge(node2, node3);
 
       node1.position = const Offset(100, 100);
       node2.position = const Offset(200, 100);
@@ -179,10 +181,10 @@ void main() {
       // Simulate multiple 0.3px movements, measuring cumulative distance from origin
       final originPos = node1.position;
       final movements = [
-        const Offset(100.3, 100),   // 0.3px from origin
-        const Offset(100.6, 100),   // 0.6px from origin
-        const Offset(100.9, 100),   // 0.9px from origin
-        const Offset(101.2, 100),   // 1.2px from origin (now > 1px)
+        const Offset(100.3, 100), // 0.3px from origin
+        const Offset(100.6, 100), // 0.6px from origin
+        const Offset(100.9, 100), // 0.9px from origin
+        const Offset(101.2, 100), // 1.2px from origin (now > 1px)
       ];
 
       for (var i = 0; i < movements.length; i++) {
@@ -205,7 +207,7 @@ void main() {
       graph.addNode(node1);
       graph.addNode(node2);
 
-      final edge = graph.addEdge(node1, node2);
+      graph.addEdge(node1, node2);
 
       node1.position = const Offset(100, 100);
       node2.position = const Offset(200, 200);
@@ -220,7 +222,7 @@ void main() {
 
     test('Threshold constant is 1.0 pixels', () {
       // Verify the threshold value matches specification
-      const double expectedThreshold = 1.0;
+      const expectedThreshold = 1.0;
 
       // This test documents that movements < 1px should not trigger recalculation
       final testDistance1 = 0.999;
