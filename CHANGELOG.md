@@ -1,3 +1,7 @@
+> This changelog documents the JFlutter-maintained fork of [`nabil6391/graphview`](https://github.com/nabil6391/graphview). Fork-specific technical changes are inventoried in [FORK_PATCHES.md](FORK_PATCHES.md).
+
+## JFlutter Fork Releases (versions 1.5.0+)
+
 ## 1.5.2
 
 - **IMPROVED**: Enhanced deprecation warnings with clearer migration guidance
@@ -47,6 +51,10 @@
 - **IMPROVED** TreeEdgeRenderer with curved/straight connection options
 - **IMPROVED**: Better performance with caching for graphs
 - **IMPROVED**: Sugiyama Algorithm with postStraighten and additional strategies
+
+## Upstream Releases (inherited, versions 0.1.0-1.2.0)
+
+The upstream version history is preserved below for continuity and reference.
 
 ## 1.2.0
 

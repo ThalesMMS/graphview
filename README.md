@@ -10,6 +10,17 @@ Flutter GraphView is used to display data in graph structures. It can display Tr
 ![alt Example](https://media.giphy.com/media/jQ7fdMc5HmyQRoikaK/giphy.gif "Tree")
 ![alt Example](image/LayeredGraph.png "Layered Graph Example")
 
+About This Fork
+===============
+This repository is a fork of [`nabil6391/graphview`](https://github.com/nabil6391/graphview) maintained for JFlutter. JFlutter uses this fork for graph visualizations that need enhanced edge rendering, performance optimizations for larger interactive graphs, an expanded layout algorithm suite, and programmatic navigation and collapse APIs.
+
+Fork Documentation
+------------------
+
+- [FORK_PATCHES.md](FORK_PATCHES.md) - Technical inventory of all current JFlutter fork patches, including affected files, rationale, and test coverage.
+- [MIGRATION.md](MIGRATION.md) - API migration guide for the `Node.Id()` and `GraphView.builder()` patterns.
+- [AGENTS.md](AGENTS.md) - Contributor guidance for working in this fork.
+
 Overview
 ========
 The library is designed to support different graph layouts and currently works excellent with small graphs. It now includes advanced features like node animations, expand/collapse functionality, and automatic camera positioning.
@@ -19,12 +30,12 @@ http://graphview.surge.sh/
 
 Features
 ========
-- **Multiple Layout Algorithms**: Tree, Directed Graph, Layered Graph, Balloon, Circular, Radial, Tidier Tree, and Mindmap layouts
-- **Node Animations**: Smooth expand/collapse animations with customizable duration
-- **Interactive Navigation**: Jump to nodes, zoom to fit, auto-centering capabilities
-- **Node Expand/Collapse**: Hierarchical node visibility control with animated transitions
-- **Customizable Rendering**: Custom edge renderers, paint styling, and node builders
-- **Touch Interactions**: Pan, zoom, and tap handling with InteractiveViewer integration
+- **Multiple Layout Algorithms**: Tree, Directed Graph, Layered Graph, Balloon, Circular, Radial, Tidier Tree, and Mindmap layouts. Balloon, Circular, Radial, Tidier Tree, and Mindmap layouts are JFlutter fork additions.
+- **Node Animations**: Smooth expand/collapse animations with customizable duration. Fork-specific animation behavior is documented in [FORK_PATCHES.md](FORK_PATCHES.md#animation-patches).
+- **Interactive Navigation**: Jump to nodes, zoom to fit, auto-centering capabilities through `GraphViewController`.
+- **Node Expand/Collapse**: Hierarchical node visibility control with animated transitions through `GraphViewController`.
+- **Customizable Rendering**: Custom edge renderers, paint styling, node builders, per-edge renderers, and edge labels. Fork-specific rendering APIs are documented in [FORK_PATCHES.md](FORK_PATCHES.md#edge-rendering-patches).
+- **Touch Interactions**: Pan, zoom, tap handling with InteractiveViewer integration, and optional node dragging through `NodeDraggingConfiguration`.
 
 Migration
 =========

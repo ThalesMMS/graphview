@@ -607,3 +607,16 @@ If you have questions or encounter issues during migration:
 - **Discussions**: Ask questions in GitHub Discussions
 
 We're committed to making this migration as smooth as possible. The new builder pattern provides a more robust foundation for future GraphView features!
+
+## Complete Fork API Reference
+
+This migration guide covers the core `Node.Id()` and `GraphView.builder()` migration path. For the full JFlutter fork API surface, use [FORK_PATCHES.md](FORK_PATCHES.md) as the authoritative technical inventory of fork-specific APIs, behavior changes, affected files, rationale, and test coverage.
+
+Relevant fork API sections:
+
+- [Edge Rendering Patches](FORK_PATCHES.md#edge-rendering-patches) - `AdaptiveEdgeRenderer`, routing and anchor modes, per-edge renderers, and edge labels.
+- [Performance Patches](FORK_PATCHES.md#performance-patches) - Barnes-Hut force-directed optimization, rectangle-based repulsion, path caching, and dirty edge tracking.
+- [Interaction Patches](FORK_PATCHES.md#interaction-patches) - `GraphViewController` navigation and visibility APIs, plus `NodeDraggingConfiguration`.
+- [Algorithm Patches](FORK_PATCHES.md#algorithm-patches) - Additional tree layouts, `MindmapAlgorithm`, `MindmapEdgeRenderer`, and tree renderer enhancements.
+
+Working demonstrations of fork features are available in the `example/lib/` directory.
